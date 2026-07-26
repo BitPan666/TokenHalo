@@ -6,9 +6,9 @@
 
 - 产品名称：TokenHalo
 - 本地开发分支：`codex/tokenhalo-rename`
-- 当前基线提交：`f3740de`（`feat: add card-scoped native glass`）
+- GitHub 交接基线：`main`
 - 技术栈：React 19、TypeScript、Vite、Tauri 2、Rust
-- 上次完整验证：2026-07-26，前端 194 项测试和 Rust 86 项测试通过
+- 上次完整验证：2026-07-27，前端 194 项测试、生产构建和 Rust `cargo check` 通过
 
 当前版本已包含：
 
@@ -24,19 +24,32 @@
 安装 Node.js 20+、Rust stable 和 Tauri 2 所需的系统依赖，然后执行：
 
 ```bash
-git clone https://github.com/change-42-yhmm/TokenHalo.git
+git clone https://github.com/peter9237/TokenHalo.git
 cd TokenHalo
 npm install
 npm test
-cargo test --manifest-path src-tauri/Cargo.toml
+npm run build
+cargo check --manifest-path src-tauri/Cargo.toml
 npm run tauri dev
 ```
 
-如果 GitHub 的默认分支尚未切到当前基线，再执行：
+GitHub 的 `main` 已包含当前可开发快照，不需要切换到其他分支。
+
+如果需要恢复本机保存的完整原始提交历史，可在克隆后的仓库旁执行：
 
 ```bash
+cd ..
+cat TokenHalo/handoff/TokenHalo-2026-07-27.bundle.part-* \
+  > /tmp/TokenHalo-2026-07-27.bundle
+shasum -a 256 -c TokenHalo/handoff/TokenHalo-2026-07-27.bundle.sha256
+git bundle verify /tmp/TokenHalo-2026-07-27.bundle
+git clone /tmp/TokenHalo-2026-07-27.bundle TokenHalo-history
+cd TokenHalo-history
 git switch codex/tokenhalo-rename
+git remote add origin https://github.com/peter9237/TokenHalo.git
 ```
+
+日常继续开发优先使用普通的 GitHub 克隆方式；只有需要追溯旧提交时才使用 Bundle。
 
 浏览器开发模式使用 mock 数据。真实剩余额度和本机 Token 统计必须通过 Tauri 桌面环境验证。
 
