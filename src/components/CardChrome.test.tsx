@@ -326,6 +326,38 @@ describe("CardChrome", () => {
     ).borderRadius).toBe(sharedRadius);
   });
 
+  it("gives both expanded cards the same subtle blue diagonal glass texture", () => {
+    const style = document.createElement("style");
+    style.dataset.cardChromeTestStyle = "true";
+    style.textContent = readFileSync(
+      resolve(process.cwd(), "src/styles.css"),
+      "utf8",
+    );
+    document.head.append(style);
+    const { container } = render(
+      <>
+        <section className="expanded-card-surface quota-card" />
+        <section className="expanded-card-surface token-stats-card" />
+      </>,
+    );
+
+    const backgrounds = [
+      container.querySelector<HTMLElement>(".quota-card")!,
+      container.querySelector<HTMLElement>(".token-stats-card")!,
+    ].map((surface) => getComputedStyle(surface));
+
+    backgrounds.forEach((surfaceStyle) => {
+      expect(surfaceStyle.getPropertyValue("--glass-texture-angle").trim())
+        .toBe("135deg");
+      expect(surfaceStyle.getPropertyValue("--glass-texture-color").trim())
+        .toBe("194 224 248");
+      expect(surfaceStyle.getPropertyValue("--glass-texture-opacity").trim())
+        .toBe("calc(.02 + var(--glass-alpha) * .04)");
+      expect(surfaceStyle.getPropertyValue("--glass-edge-highlight-opacity").trim())
+        .toBe(".58");
+    });
+  });
+
   it("routes each action click to its matching callback exactly once", () => {
     const callbacks = {
       onRefresh: vi.fn(),
