@@ -179,7 +179,7 @@ button { font: inherit; }
 .primary-metric { margin-top: 7px; display: flex; align-items: flex-end; line-height: .82; letter-spacing: -.07em; }
 .primary-metric span { font-size: var(--number-size, 64px); font-weight: 500; }
 .primary-metric small { margin: 0 0 5px 5px; font-size: 21px; font-weight: 700; letter-spacing: -.04em; }
-.progress { height: var(--progress-height, 10px); margin-top: 17px; overflow: hidden; border-radius: 999px; background: rgba(111,145,181,.16); box-shadow: inset 0 1px 2px rgba(64,76,102,.12); }
+.progress { height: var(--progress-height, 10px); margin-top: 17px; overflow: hidden; border-radius: 999px; background: rgb(196 216 236); box-shadow: inset 0 1px 2px rgba(64,76,102,.12); }
 .progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--progress-start, #397ae0), var(--progress-end, #89b7ff)); box-shadow: 0 0 14px color-mix(in srgb, var(--progress-start, #397ae0) 38%, transparent); transition: width .5s ease; }
 .reset-time { margin-top: 7px; font-size: 9px; color: var(--stats-muted); letter-spacing: .025em; }
 

@@ -110,6 +110,20 @@ describe("QuotaCard", () => {
     expect(progressRule!.style.height).toBe("var(--progress-height, 10px)");
   });
 
+  it("masks the diagonal card texture beneath the remaining-usage progress track", () => {
+    const style = document.createElement("style");
+    style.dataset.quotaCardTestStyle = "true";
+    style.textContent = readFileSync(
+      resolve(process.cwd(), "src/styles.css"),
+      "utf8",
+    );
+    document.head.append(style);
+    renderQuota();
+
+    expect(getComputedStyle(screen.getByRole("progressbar")).backgroundColor)
+      .toBe("rgb(196, 216, 236)");
+  });
+
   it("renders a weekly-only primary without an empty secondary metric", () => {
     renderQuota({
       shortWindow: {
