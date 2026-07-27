@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
+// @ts-expect-error Vitest executes this test in Node; the app does not ship Node types.
+import { readFileSync } from "node:fs";
+// @ts-expect-error Vitest executes this test in Node; the app does not ship Node types.
+import { resolve } from "node:path";
 import {
   cleanup,
   fireEvent,
@@ -11,6 +15,8 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WidgetPreferences } from "../types";
 import { AppearanceSheet } from "./AppearanceSheet";
+
+declare const process: { cwd: () => string };
 
 const preferences: WidgetPreferences = {
   locked: false,
@@ -24,7 +30,11 @@ const preferences: WidgetPreferences = {
   glassStyle: "regular",
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  document.querySelectorAll("style[data-appearance-sheet-test-style]")
+    .forEach((style) => style.remove());
+});
 
 describe("AppearanceSheet", () => {
   it("shows transparency plus native glass style and three effect strengths", () => {
@@ -78,7 +88,14 @@ describe("AppearanceSheet", () => {
     })));
   });
 
-  it("previews CSS variables immediately without writing during input", () => {
+  it("keeps the settings glass fixed while previewing card transparency", () => {
+    const style = document.createElement("style");
+    style.dataset.appearanceSheetTestStyle = "true";
+    style.textContent = readFileSync(
+      resolve(process.cwd(), "src/styles.css"),
+      "utf8",
+    );
+    document.head.append(style);
     const onPreview = vi.fn();
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(
@@ -89,16 +106,25 @@ describe("AppearanceSheet", () => {
         onClose={vi.fn()}
       />,
     );
+    const dialog = screen.getByRole("dialog");
+    const initialStyle = getComputedStyle(dialog);
+
+    expect(initialStyle.getPropertyValue("--appearance-sheet-alpha").trim())
+      .toBe(".82");
+    expect(initialStyle.getPropertyValue("--appearance-sheet-blur").trim())
+      .toBe("32px");
 
     fireEvent.change(screen.getByRole("slider", { name: "玻璃透明度" }), {
       target: { value: "55" },
     });
 
-    expect(screen.getByRole("dialog")).toHaveStyle({
-      "--glass-transparency": "55",
-      "--glass-blur-strength": "40",
-      "--glass-alpha": "0.45",
-    });
+    const previewStyle = getComputedStyle(dialog);
+    expect(previewStyle.getPropertyValue("--appearance-sheet-alpha").trim())
+      .toBe(".82");
+    expect(previewStyle.getPropertyValue("--appearance-sheet-blur").trim())
+      .toBe("32px");
+    expect(dialog.style.getPropertyValue("--glass-alpha")).toBe("");
+    expect(dialog.style.getPropertyValue("--glass-blur-strength")).toBe("");
     expect(onPreview).toHaveBeenLastCalledWith(expect.objectContaining({
       glassTransparency: 55,
       glassBlurStrength: 40,

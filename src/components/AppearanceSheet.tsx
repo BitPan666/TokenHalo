@@ -2,7 +2,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
@@ -222,11 +221,6 @@ export function AppearanceSheet({
   };
 
   const controlsDisabled = disabled || saving;
-  const sheetStyle = {
-    "--glass-transparency": draft.glassTransparency,
-    "--glass-blur-strength": draft.glassBlurStrength,
-    "--glass-alpha": (100 - draft.glassTransparency) / 100,
-  } as CSSProperties;
 
   return (
     <section
@@ -237,7 +231,6 @@ export function AppearanceSheet({
       aria-labelledby="appearance-sheet-title"
       aria-busy={controlsDisabled}
       tabIndex={-1}
-      style={sheetStyle}
       onPointerDown={stopPointer}
       onMouseDown={(event) => event.stopPropagation()}
       onKeyDownCapture={(event) => {
