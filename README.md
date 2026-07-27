@@ -6,7 +6,11 @@ Lightweight floating desktop widget for checking Codex quota from the local Code
 
 TokenHalo is an independent open-source project. It is not affiliated with, endorsed by, or sponsored by OpenAI. Codex is referenced only to describe compatibility.
 
-![TokenHalo quota states](docs/images/quota-states.png)
+| Remaining quota | Local Token statistics |
+| --- | --- |
+| ![TokenHalo remaining quota](docs/images/quota-card.png) | ![TokenHalo local Token statistics](docs/images/token-stats.png) |
+
+Screenshots use simulated data. Installed desktop builds read the current user's own Codex quota and local session records when available.
 
 ## Highlights
 
@@ -24,9 +28,13 @@ TokenHalo is an independent open-source project. It is not affiliated with, endo
 
 ## Screenshots
 
-| Quota states | Floating orb | Reset credit expiration |
-| --- | --- | --- |
-| ![Healthy, caution, and critical quota states](docs/images/quota-states.png) | ![Collapsed quota orb](docs/images/quota-orb.png) | ![Reset credit expiration popover](docs/images/quota-reset-expiration.png) |
+### Quota states
+
+![Healthy, caution, and critical quota states](docs/images/quota-states.png)
+
+| Floating orb | Reset credit expiration |
+| --- | --- |
+| ![Collapsed quota orb](docs/images/quota-orb.png) | ![Reset credit expiration popover](docs/images/quota-reset-expiration.png) |
 
 ## Repository Metadata
 
