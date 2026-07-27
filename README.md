@@ -66,15 +66,15 @@ The same saved transparency, style, and effect-strength preferences drive these 
 
 ## Download
 
-The repository workflow is configured to publish unsigned builds from version tags:
+The repository workflow is configured to publish unsigned installers from version tags:
 
-- Latest release: https://github.com/change-42-yhmm/tokenhalo/releases/latest
-- Windows: `tokenhalo-windows-unsigned.zip`
-- macOS Universal: `tokenhalo-macos-universal-unsigned.zip`
+- Latest release: https://github.com/peter9237/TokenHalo/releases/latest
+- Windows: use the `.exe` or `.msi` installer.
+- macOS Universal: use the `.dmg` bundle.
 
 Check the release notes to confirm that the downloaded version includes local Token statistics. A local branch or successful local build is not itself a published GitHub release.
 
-Unzip the artifact and run the app. These artifacts are not code-signed or notarized, so Windows SmartScreen or macOS Gatekeeper may block or warn on first launch. Public distribution to non-technical users should use signed Windows builds and a Developer ID signed and notarized macOS build.
+These installers are not platform-code-signed or notarized, so Windows SmartScreen or macOS Gatekeeper may block or warn on first launch. On macOS, open the `.dmg`, drag TokenHalo to Applications, then right-click TokenHalo and choose **Open**. If it is still blocked, allow it in **System Settings → Privacy & Security**. Signing and notarization can be added later to remove most of this first-launch friction.
 
 ### Upgrading from Quota Float
 
@@ -84,7 +84,7 @@ TokenHalo copies supported preferences and the local Token statistics index from
 
 Please use GitHub Issues for bugs, compatibility reports, and feature requests:
 
-https://github.com/change-42-yhmm/tokenhalo/issues
+https://github.com/peter9237/TokenHalo/issues
 
 ## Privacy Boundary
 
@@ -141,7 +141,7 @@ src-tauri/target/release/tokenhalo.exe
 GitHub Actions are configured for:
 
 - CI on push/PR: frontend tests, Rust tests, web build, Tauri build.
-- `v*` tags: unsigned Windows and macOS Universal bundle artifacts and a public GitHub Release.
+- `v*` tags: unsigned Windows installers, a macOS Universal `.dmg`, and a public GitHub Release.
 
 See [docs/GITHUB-RELEASE-CHECKLIST.md](docs/GITHUB-RELEASE-CHECKLIST.md) before publishing a version for others.
 

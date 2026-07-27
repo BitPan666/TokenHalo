@@ -178,10 +178,14 @@ fn discover_jsonl(root: &Path) -> io::Result<Vec<(String, PathBuf)>> {
                 "session path is not valid UTF-8",
             ));
         };
-        files.push((key.to_owned(), entry.into_path()));
+        files.push((normalize_relative_key(key), entry.into_path()));
     }
     files.sort_unstable_by(|left, right| left.0.cmp(&right.0));
     Ok(files)
+}
+
+fn normalize_relative_key(key: &str) -> String {
+    key.replace('\\', "/")
 }
 
 fn append_cursor<R: Read + Seek>(
@@ -372,8 +376,8 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        append_cursor, file_stamp, fingerprint_boundary, parse_open_file, unchanged_file,
-        ChangeMarker, FileIdentity, FileStamp, IndexedSession, TokenStatsIndex,
+        append_cursor, file_stamp, fingerprint_boundary, normalize_relative_key, parse_open_file,
+        unchanged_file, ChangeMarker, FileIdentity, FileStamp, IndexedSession, TokenStatsIndex,
     };
     use crate::token_stats::models::{DailySessionTotals, TokenTotals};
     use crate::token_stats::parser::parse_jsonl;
@@ -446,6 +450,14 @@ mod tests {
 
     fn utc() -> Tz {
         "UTC".parse().unwrap()
+    }
+
+    #[test]
+    fn relative_index_keys_use_forward_slashes_on_every_platform() {
+        assert_eq!(
+            normalize_relative_key(r"2026\07\session.jsonl"),
+            "2026/07/session.jsonl"
+        );
     }
 
     #[test]

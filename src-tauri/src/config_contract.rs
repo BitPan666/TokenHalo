@@ -105,3 +105,19 @@ fn native_glass_never_reparents_the_webview() {
         "moving WKWebView into NSGlassEffectView crashes WebKit's window observer cleanup"
     );
 }
+
+#[cfg(target_os = "macos")]
+#[test]
+fn native_glass_clips_its_rounded_layer_to_bounds() {
+    let source = include_str!("macos_glass.rs");
+    let liquid_glass = source
+        .split("GlassBackend::LiquidGlass =>")
+        .nth(1)
+        .and_then(|branch| branch.split("GlassBackend::Vibrancy =>").next())
+        .expect("liquid glass branch must exist");
+
+    assert!(
+        liquid_glass.contains("layer.setMasksToBounds(true)"),
+        "native glass must clip its material to the rounded card bounds"
+    );
+}
