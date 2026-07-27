@@ -184,15 +184,16 @@ button { font: inherit; }
 .reset-time { margin-top: 7px; font-size: 9px; color: var(--stats-muted); letter-spacing: .025em; }
 
 .card-footer { position: absolute; left: 21px; right: 21px; bottom: 20px; display: flex; align-items: flex-end; justify-content: space-between; }
-.card-footer--compact { padding-top: 12px; border-top: 1px solid rgba(82,112,145,.2); }
+.card-footer--compact { align-items: flex-start; padding-top: 12px; border-top: 1px solid rgba(82,112,145,.2); }
 .weekly-metric p { color: var(--stats-muted); font-size: 8px; font-weight: 560; letter-spacing: .025em; }
 .weekly-metric strong { display: block; margin-top: 4px; font-size: 18px; font-weight: 650; line-height: 1; letter-spacing: -.04em; }
 .weekly-metric strong small { margin-left: 2px; font-size: 10px; font-weight: 500; }
 .weekly-metric > span { display: block; margin-top: 3px; color: var(--stats-muted); font-size: 8px; font-weight: 500; }
 .quota-credit-block { position: relative; }
+.card-footer--compact .quota-credit-block { transform: translateY(-4px); }
 .reset-credit-row { margin-top: 7px; display: flex; align-items: center; gap: 6px; }
 .card-footer--compact .reset-credit-row { margin-top: 0; }
-.reset-credit-row span { display: block; color: rgba(17,20,27,.9); font-size: 9px; font-weight: 500; }
+.reset-credit-row span { display: block; color: rgba(17,20,27,.9); font-size: 10px; font-weight: 500; line-height: 1.2; }
 .reset-credit-button { min-height: auto; padding: 0; border: 0; border-radius: 0; color: #234977; background: transparent; font-size: 12px; font-weight: 400; cursor: pointer; }
 .reset-credit-button:hover { color: #173760; text-decoration: underline; text-underline-offset: 2px; }
 .reset-credit-tip { position: absolute; left: 0; bottom: 25px; width: max-content; max-width: 190px; padding: 9px 11px; border: 1px solid rgba(255,255,255,.52); border-radius: 10px; color: #1f2935; background: rgba(255,255,255,.82); box-shadow: 0 12px 30px rgba(35,48,73,.14); backdrop-filter: blur(12px); font-size: 9px; font-weight: 500; line-height: 1.55; }

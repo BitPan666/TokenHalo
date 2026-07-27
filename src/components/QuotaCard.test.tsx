@@ -128,6 +128,39 @@ describe("QuotaCard", () => {
     expect(screen.getByLabelText("Codex")).toBeInTheDocument();
   });
 
+  it("aligns a zero-credit label with the compact provider mark at the details-label size", () => {
+    const style = document.createElement("style");
+    style.dataset.quotaCardTestStyle = "true";
+    style.textContent = readFileSync(
+      resolve(process.cwd(), "src/styles.css"),
+      "utf8",
+    );
+    document.head.append(style);
+    const { container } = renderQuota({
+      shortWindow: {
+        remainingPercent: 51,
+        resetsAt: null,
+        windowSeconds: 604_800,
+      },
+      weeklyWindow: null,
+      resetCredits: 0,
+    });
+
+    const creditLabel = screen.getByText("0 次重置机会");
+    const compactFooter = container.querySelector<HTMLElement>(
+      ".card-footer--compact",
+    )!;
+    const creditBlock = container.querySelector<HTMLElement>(
+      ".quota-credit-block",
+    )!;
+    const labelStyle = getComputedStyle(creditLabel);
+
+    expect(getComputedStyle(compactFooter).alignItems).toBe("flex-start");
+    expect(getComputedStyle(creditBlock).transform).toBe("translateY(-4px)");
+    expect(labelStyle.fontSize).toBe("10px");
+    expect(labelStyle.color).toBe("rgba(17, 20, 27, 0.9)");
+  });
+
   it("renders five-hour primary and weekly secondary when both exist", () => {
     renderQuota({
       shortWindow: {
