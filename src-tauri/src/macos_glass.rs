@@ -221,6 +221,11 @@ unsafe fn apply_to_webview(
             glass.setTintColor(Some(&tint));
             let glass_effect: &NSGlassEffectView = glass.as_ref();
             let glass_view: &NSView = glass_effect.as_ref();
+            glass_view.setWantsLayer(true);
+            if let Some(layer) = glass_view.layer() {
+                layer.setCornerRadius(geometry.radius);
+                layer.setMasksToBounds(true);
+            }
             container.addSubview_positioned_relativeTo(
                 glass_view,
                 NSWindowOrderingMode::Below,

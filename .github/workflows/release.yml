@@ -9,22 +9,16 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  publish:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            artifact-name: tokenhalo-windows-unsigned
-            archive-name: tokenhalo-windows-unsigned.zip
-            build-command: npm run tauri -- build
-            artifact-path: src-tauri/target/release/bundle/*
-          - os: macos-latest
-            artifact-name: tokenhalo-macos-universal-unsigned
-            archive-name: tokenhalo-macos-universal-unsigned.zip
-            build-command: npm run tauri -- build --target universal-apple-darwin
-            artifact-path: src-tauri/target/universal-apple-darwin/release/bundle/*
-    runs-on: ${{ matrix.os }}
+          - platform: windows-latest
+            args: ""
+          - platform: macos-latest
+            args: "--target universal-apple-darwin"
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,20 +33,40 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      - name: Validate release version
+        shell: pwsh
+        run: |
+          $package = Get-Content -Raw package.json | ConvertFrom-Json
+          $tauri = Get-Content -Raw src-tauri/tauri.conf.json | ConvertFrom-Json
+          $cargoVersion = Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "([^"]+)"$' | Select-Object -First 1
+          if ($null -eq $cargoVersion) {
+            throw "Could not read the Cargo package version."
+          }
+          $versions = @($package.version, $tauri.version, $cargoVersion.Matches[0].Groups[1].Value)
+          if (($versions | Select-Object -Unique).Count -ne 1) {
+            throw "package.json, tauri.conf.json, and Cargo.toml versions must match."
+          }
+          $expectedTag = "v$($package.version)"
+          if ($env:GITHUB_REF_NAME -ne $expectedTag) {
+            throw "Release tag '$env:GITHUB_REF_NAME' does not match app version '$expectedTag'."
+          }
       - run: npm test
       - run: cargo test --manifest-path src-tauri/Cargo.toml
-      - run: ${{ matrix.build-command }}
-      - name: Archive bundle
-        shell: pwsh
-        run: Compress-Archive -Path "${{ matrix.artifact-path }}" -DestinationPath "${{ matrix.archive-name }}" -Force
-      - uses: actions/upload-artifact@v4
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: ${{ matrix.artifact-name }}
-          path: ${{ matrix.archive-name }}
-          if-no-files-found: error
-          retention-days: 90
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ matrix.archive-name }}
-          draft: false
-          generate_release_notes: true
+          tagName: v__VERSION__
+          releaseName: TokenHalo v__VERSION__
+          releaseBody: |
+            ## Download
+
+            - macOS: download the Universal `.dmg`. The unsigned build may require right-clicking TokenHalo and choosing **Open** the first time.
+            - Windows: download the `.exe` or `.msi`. The unsigned build may trigger a SmartScreen warning.
+
+            ## Privacy
+
+            TokenHalo reads the local Codex Desktop login state for remaining-quota requests and reads local `~/.codex/sessions` Token counters for on-device statistics. It does not upload prompts, chats, raw session text, local statistics, or credentials.
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

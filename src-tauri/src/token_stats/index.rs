@@ -128,10 +128,13 @@ impl TokenStatsIndex {
         let before = file.metadata()?;
         let before = file_stamp(&before)?;
 
-        let append_from = match self.files.get(key) {
-            Some(session) if unchanged_file(session, before) => {
+        if let Some(session) = self.files.get(key) {
+            if unchanged_open_file(&mut file, session, before)? {
                 return Ok(());
             }
+        }
+
+        let append_from = match self.files.get(key) {
             Some(session) if append_candidate(session, before) => {
                 append_cursor(&mut file, session, before.len, before.modified_nanos)?
             }
@@ -178,10 +181,14 @@ fn discover_jsonl(root: &Path) -> io::Result<Vec<(String, PathBuf)>> {
                 "session path is not valid UTF-8",
             ));
         };
-        files.push((key.to_owned(), entry.into_path()));
+        files.push((normalize_relative_key(key), entry.into_path()));
     }
     files.sort_unstable_by(|left, right| left.0.cmp(&right.0));
     Ok(files)
+}
+
+fn normalize_relative_key(key: &str) -> String {
+    key.replace('\\', "/")
 }
 
 fn append_cursor<R: Read + Seek>(
@@ -286,6 +293,24 @@ fn unchanged_file(session: &IndexedSession, current: FileStamp) -> bool {
         && session.change_marker == current.change_marker
 }
 
+fn unchanged_open_file<R: Read + Seek>(
+    reader: &mut R,
+    session: &IndexedSession,
+    current: FileStamp,
+) -> io::Result<bool> {
+    if !unchanged_file(session, current) {
+        return Ok(false);
+    }
+    if current.identity.is_some() || current.change_marker.is_some() {
+        return Ok(true);
+    }
+    let (fingerprint, sample_len) = fingerprint_boundary(reader, session.cursor)?;
+    Ok(
+        sample_len == session.boundary_len
+            && fingerprint == session.boundary_fingerprint,
+    )
+}
+
 fn append_candidate(session: &IndexedSession, current: FileStamp) -> bool {
     session.cursor <= session.len
         && current.len > session.len
@@ -372,8 +397,9 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        append_cursor, file_stamp, fingerprint_boundary, parse_open_file, unchanged_file,
-        ChangeMarker, FileIdentity, FileStamp, IndexedSession, TokenStatsIndex,
+        append_cursor, file_stamp, fingerprint_boundary, normalize_relative_key, parse_open_file,
+        unchanged_file, unchanged_open_file, ChangeMarker, FileIdentity, FileStamp,
+        IndexedSession, TokenStatsIndex,
     };
     use crate::token_stats::models::{DailySessionTotals, TokenTotals};
     use crate::token_stats::parser::parse_jsonl;
@@ -449,6 +475,14 @@ mod tests {
     }
 
     #[test]
+    fn relative_index_keys_use_forward_slashes_on_every_platform() {
+        assert_eq!(
+            normalize_relative_key(r"2026\07\session.jsonl"),
+            "2026/07/session.jsonl"
+        );
+    }
+
+    #[test]
     fn unchanged_metadata_match_reads_zero_file_content_bytes() {
         let history = "{}\n".repeat(32 * 1024).into_bytes();
         let mut reader = CountingReader::new(history.clone());
@@ -486,6 +520,38 @@ mod tests {
         }
 
         assert_eq!(reader.bytes_read, 0);
+    }
+
+    #[test]
+    fn weak_file_identity_validates_unchanged_metadata_with_a_boundary_fingerprint() {
+        let history = record("2026-07-23T01:00:00Z", totals(125)).into_bytes();
+        let replacement = record("2026-07-24T01:00:00Z", totals(456)).into_bytes();
+        assert_eq!(history.len(), replacement.len());
+        let mut history_reader = Cursor::new(history.clone());
+        let (boundary_fingerprint, boundary_len) =
+            fingerprint_boundary(&mut history_reader, history.len() as u64).unwrap();
+        let session = IndexedSession {
+            len: history.len() as u64,
+            modified_nanos: 42,
+            cursor: history.len() as u64,
+            boundary_fingerprint,
+            boundary_len,
+            ..IndexedSession::default()
+        };
+        let current = FileStamp {
+            len: session.len,
+            modified_nanos: session.modified_nanos,
+            identity: None,
+            change_marker: None,
+        };
+        let mut replacement_reader = Cursor::new(replacement);
+
+        assert!(!unchanged_open_file(
+            &mut replacement_reader,
+            &session,
+            current
+        )
+        .unwrap());
     }
 
     #[test]

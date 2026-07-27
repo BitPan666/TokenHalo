@@ -54,20 +54,20 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-构建完成后，到 GitHub 仓库的 Releases 页面检查 draft release。附件应包含：
+构建完成后，到 GitHub 仓库的 Releases 页面检查公开 release。附件应包含：
 
-- `tokenhalo-windows-unsigned.zip`
-- `tokenhalo-macos-universal-unsigned.zip`
+- Windows `.exe` 或 `.msi` 安装包。
+- macOS Universal `.dmg` 安装包。
 
-确认无误后点击 Publish release，然后把 Release 链接发给用户。
+确认两个平台的构建任务均成功、附件可以下载后，把 Release 链接发给用户。如果任一平台构建失败，先修复工作流，再删除不完整的 Release 并重新发布标签。
 
 ## 发给 Mac 用户时的说明
 
 当前 macOS 包是 unsigned 包。用户首次打开可能会被 Gatekeeper 拦截，可以这样打开：
 
-1. 下载 `tokenhalo-macos-universal-unsigned.zip`。
-2. 解压后把应用拖到 Applications 或任意测试目录。
-3. 右键点击应用，选择 Open。
+1. 下载 macOS Universal `.dmg`。
+2. 打开 `.dmg`，把 TokenHalo 拖到 Applications。
+3. 右键点击 TokenHalo，选择 Open。
 4. 在系统提示里再次选择 Open。
 5. 如果仍被拦截，到 System Settings -> Privacy & Security 里允许打开。
 

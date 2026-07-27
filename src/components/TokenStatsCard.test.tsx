@@ -519,6 +519,12 @@ describe("TokenStatsCard", () => {
     expect(stylesText).toMatch(
       /\.token-stats-disclaimer\s*\{[^}]*max-width:\s*352px/s,
     );
+    expect(stylesText).toMatch(
+      /\.token-stats-chart\s*\{[^}]*height:\s*82px;[^}]*margin-top:\s*10px;/s,
+    );
+    expect(stylesText).toMatch(
+      /\.token-stats-disclaimer\s*\{[^}]*border-top:\s*0;/s,
+    );
     expect(stylesText).not.toMatch(
       /\.(?:token-stats-header|token-stats-actions|card-header|card-actions)\b/,
     );
