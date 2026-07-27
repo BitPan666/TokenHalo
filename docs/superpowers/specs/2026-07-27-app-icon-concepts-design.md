@@ -1,54 +1,46 @@
-# TokenHalo App Icon Concepts
+# TokenHalo 应用图标概念设计
 
-## Goal
+## 目标
 
-Create four preview-only app icon concepts for TokenHalo. The concepts should
-communicate remaining quota, local Token statistics, and the floating-widget
-behavior without copying the Codex logo.
+为 TokenHalo 制作四个仅供预览的应用图标概念。图标需要表达剩余额度、本机
+Token 统计和桌面悬浮工具的特点，同时不能复制 Codex 标志。
 
-## Shared Direction
+## 统一方向
 
-- Use a blue-based gradient ranging from deep cobalt to bright sky blue.
-- Use a macOS-style rounded-square icon canvas.
-- Do not use text, letters, brand names, or the Codex knot mark.
-- Keep the central mark readable at 32×32 pixels.
-- Use simple geometry and generous negative space.
-- This round produces design candidates only. It does not replace application
-  assets, rebuild installers, or publish a release.
+- 使用以深钴蓝到明亮天蓝为主的蓝色渐变。
+- 使用符合 macOS 风格的圆角方形图标画布。
+- 不使用文字、字母、品牌名称或 Codex 结形标志。
+- 中心图形缩小到 `32×32` 像素后仍需清楚可辨。
+- 使用简洁几何图形，并保留充足的负空间。
+- 本轮只生成设计候选稿，不替换应用资源、不重新构建安装包，也不发布新版本。
 
-## Concepts
+## 概念方案
 
-### A — Light Glass / Halo Gauge
+### A｜轻玻璃：光环仪表
 
-An incomplete circular halo acts as a quota gauge around a small luminous core.
-Use restrained translucent glass, a fine highlight, and shallow depth. This is
-the recommended direction because it connects the TokenHalo name with remaining
-quota while staying recognizable at small sizes.
+使用不完整的圆形光环作为额度仪表，包围一个小型发光核心。视觉采用克制的半透明
+玻璃、细腻高光和轻微纵深。这是推荐方向，因为它能把 TokenHalo 名称与剩余额度
+直接联系起来，同时在小尺寸下保持较高识别度。
 
-### B — Light Glass / Floating Statistics
+### B｜轻玻璃：悬浮统计
 
-A translucent halo encloses three simplified rising bars. The mark should feel
-light and floating, with subtle depth but no heavy 3D rendering. It emphasizes
-the app's local statistics function.
+使用半透明光环包围三根简化的上升柱状图。整体应具有轻盈、悬浮的感觉，保留轻微
+纵深但避免厚重的 3D 渲染，重点表达应用的本机统计能力。
 
-### C — Flat / Dual-Window Gauge
+### C｜纯扁平：双周期仪表
 
-Two clean concentric arcs represent the short usage window and the longer weekly
-window. Use solid vector-like shapes and a crisp blue gradient with no glass
-texture.
+使用两层简洁的同心圆弧分别表示短周期额度和较长的周额度。采用清晰、近似矢量的
+实体图形与蓝色渐变，不加入玻璃纹理。
 
-### D — Flat / Token Pulse
+### D｜纯扁平：Token 脉冲
 
-A circular Token-like disc combines with a minimal pulse or rising indicator.
-Use bold, flat geometry and strong silhouette contrast. Avoid currency symbols
-and blockchain styling.
+将圆形 Token 抽象图形与极简脉冲或上升指示器组合。使用醒目的扁平几何和强轮廓
+对比，同时避免货币符号与区块链风格。
 
-## Deliverables and Review
+## 交付与评审
 
-- Generate one square preview for each concept, labelled A–D outside the artwork
-  when presented to the user.
-- Show all four concepts at comparable scale.
-- After the user selects a direction, refine only that direction and then create
-  the production icon set for Tauri/macOS/Windows.
-- Preserve the existing icon assets until the user explicitly approves a final
-  replacement.
+- 每个概念生成一张方形预览图，向用户展示时在图外标注 A–D。
+- 四个概念保持一致的展示尺寸，便于直接比较。
+- 用户选定方向后，只继续细化该方向，再制作适用于 Tauri、macOS 和 Windows 的
+  正式图标资源。
+- 在用户明确批准最终替换前，保留现有全部图标资源。
