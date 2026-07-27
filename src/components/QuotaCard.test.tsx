@@ -170,7 +170,7 @@ describe("QuotaCard", () => {
     const labelStyle = getComputedStyle(creditLabel);
 
     expect(getComputedStyle(compactFooter).alignItems).toBe("flex-start");
-    expect(getComputedStyle(creditBlock).transform).toBe("translateY(-4px)");
+    expect(getComputedStyle(creditBlock).transform).toBe("translateY(4px)");
     expect(labelStyle.fontSize).toBe("10px");
     expect(labelStyle.color).toBe("rgba(17, 20, 27, 0.9)");
   });

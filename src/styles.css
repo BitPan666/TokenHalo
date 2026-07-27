@@ -190,7 +190,7 @@ button { font: inherit; }
 .weekly-metric strong small { margin-left: 2px; font-size: 10px; font-weight: 500; }
 .weekly-metric > span { display: block; margin-top: 3px; color: var(--stats-muted); font-size: 8px; font-weight: 500; }
 .quota-credit-block { position: relative; }
-.card-footer--compact .quota-credit-block { transform: translateY(-4px); }
+.card-footer--compact .quota-credit-block { transform: translateY(4px); }
 .reset-credit-row { margin-top: 7px; display: flex; align-items: center; gap: 6px; }
 .card-footer--compact .reset-credit-row { margin-top: 0; }
 .reset-credit-row span { display: block; color: rgba(17,20,27,.9); font-size: 10px; font-weight: 500; line-height: 1.2; }
