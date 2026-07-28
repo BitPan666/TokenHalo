@@ -76,7 +76,7 @@ The same saved transparency, style, and effect-strength preferences drive these 
 
 The repository workflow is configured to publish unsigned installers from version tags:
 
-- Latest release: https://github.com/peter9237/TokenHalo/releases/latest
+- Latest release: https://github.com/BitPan666/TokenHalo/releases/latest
 - Windows: use the `.exe` or `.msi` installer.
 - macOS Universal: use the `.dmg` bundle.
 
@@ -92,7 +92,7 @@ TokenHalo copies supported preferences and the local Token statistics index from
 
 Please use GitHub Issues for bugs, compatibility reports, and feature requests:
 
-https://github.com/peter9237/TokenHalo/issues
+https://github.com/BitPan666/TokenHalo/issues
 
 ## Privacy Boundary
 

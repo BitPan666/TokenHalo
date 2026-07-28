@@ -24,7 +24,7 @@
 安装 Node.js 20+、Rust stable 和 Tauri 2 所需的系统依赖，然后执行：
 
 ```bash
-git clone https://github.com/peter9237/TokenHalo.git
+git clone https://github.com/BitPan666/TokenHalo.git
 cd TokenHalo
 npm install
 npm test
@@ -46,7 +46,7 @@ git bundle verify /tmp/TokenHalo-2026-07-27.bundle
 git clone /tmp/TokenHalo-2026-07-27.bundle TokenHalo-history
 cd TokenHalo-history
 git switch codex/tokenhalo-rename
-git remote add origin https://github.com/peter9237/TokenHalo.git
+git remote add origin https://github.com/BitPan666/TokenHalo.git
 ```
 
 日常继续开发优先使用普通的 GitHub 克隆方式；只有需要追溯旧提交时才使用 Bundle。
