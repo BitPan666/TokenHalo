@@ -8,7 +8,7 @@ export function clampPercent(value: number): number {
 export function quotaTier(percent: number | null): "unknown" | "healthy" | "caution" | "critical" {
   if (percent === null) return "unknown";
   if (percent >= 50) return "healthy";
-  if (percent >= 10) return "caution";
+  if (percent >= 20) return "caution";
   return "critical";
 }
 

@@ -8,11 +8,11 @@ describe("quota formatting", () => {
     expect(clampPercent(140)).toBe(100);
   });
 
-  it("uses inclusive 50% and 10% quota boundaries", () => {
+  it("uses inclusive 50% and 20% quota boundaries", () => {
     expect(quotaTier(50)).toBe("healthy");
     expect(quotaTier(49)).toBe("caution");
-    expect(quotaTier(10)).toBe("caution");
-    expect(quotaTier(9)).toBe("critical");
+    expect(quotaTier(20)).toBe("caution");
+    expect(quotaTier(19)).toBe("critical");
     expect(quotaTier(null)).toBe("unknown");
   });
 

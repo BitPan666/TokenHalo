@@ -76,6 +76,8 @@ const chromeProps = {
 afterEach(() => {
   cleanup();
   window.history.replaceState(null, "", "/");
+  document.querySelectorAll("style[data-token-stats-card-test-style]")
+    .forEach((style) => style.remove());
 });
 
 function ControlledCard({
@@ -581,6 +583,59 @@ describe("TokenStatsCard", () => {
     expect(screen.getByText("万")).toHaveClass("token-stats-suffix");
     expect(screen.getByText(/本机日志与统计缓存/))
       .toHaveClass("token-stats-disclaimer");
+  });
+
+  it("renders the range control with the compact nested corner geometry", () => {
+    const style = document.createElement("style");
+    style.dataset.tokenStatsCardTestStyle = "true";
+    style.textContent = readFileSync(
+      resolve(process.cwd(), "src/styles.css"),
+      "utf8",
+    );
+    document.head.append(style);
+    const { container } = render(<ControlledCard />);
+
+    const tabs = container.querySelector(".token-stats-tabs") as HTMLElement;
+    const activeTab = screen.getByRole("button", { name: "近 7 日" });
+    expect(getComputedStyle(tabs).borderRadius).toBe("12px");
+    expect(getComputedStyle(tabs).padding).toBe("4px");
+    expect(getComputedStyle(activeTab).borderRadius).toBe("8px");
+  });
+
+  it("uses the shared main-number weight, unit size, and one-pixel sixty-percent highlight", () => {
+    const style = document.createElement("style");
+    style.dataset.tokenStatsCardTestStyle = "true";
+    style.textContent = readFileSync(
+      resolve(process.cwd(), "src/styles.css"),
+      "utf8",
+    );
+    document.head.append(style);
+    const { container } = render(<ControlledCard />);
+
+    const total = screen.getByTestId("stats-total");
+    const suffix = container.querySelector(".token-stats-suffix") as HTMLElement;
+    expect(getComputedStyle(total).fontWeight).toBe("650");
+    expect(getComputedStyle(total).textShadow).toBe("0 1px 0 rgb(255 255 255 / .6)");
+    expect(getComputedStyle(suffix).fontSize).toBe("24px");
+    expect(getComputedStyle(suffix).textShadow).toBe("0 1px 0 rgb(255 255 255 / .6)");
+  });
+
+  it("uses the shared blue gradient for the statistics bars", () => {
+    const style = document.createElement("style");
+    style.dataset.tokenStatsCardTestStyle = "true";
+    style.textContent = readFileSync(
+      resolve(process.cwd(), "src/styles.css"),
+      "utf8",
+    );
+    document.head.append(style);
+    render(<ControlledCard />);
+
+    const chart = screen.getByRole("group", { name: "近 7 日 Token 图表" });
+    const selectedBar = within(chart).getByRole("button", {
+      name: /7\/7 · 525 万 Token/,
+    });
+    expect(getComputedStyle(selectedBar).backgroundImage)
+      .toBe("linear-gradient(to bottom, #397ae0, #91baf0)");
   });
 
   it.each([

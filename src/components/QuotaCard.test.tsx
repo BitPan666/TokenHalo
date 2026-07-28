@@ -124,6 +124,54 @@ describe("QuotaCard", () => {
       .toBe("rgb(196, 216, 236)");
   });
 
+  it.each([
+    [73, "healthy", "#397ae0", "#91baf0"],
+    [35, "caution", "#e7822f", "#ffd978"],
+    [19, "critical", "#e94e54", "#ff9290"],
+  ] as const)(
+    "renders the %s%% quota with the %s progress gradient",
+    (remainingPercent, tier, start, end) => {
+      const style = document.createElement("style");
+      style.dataset.quotaCardTestStyle = "true";
+      style.textContent = readFileSync(
+        resolve(process.cwd(), "src/styles.css"),
+        "utf8",
+      );
+      document.head.append(style);
+      const { container } = renderQuota({
+        shortWindow: {
+          remainingPercent,
+          resetsAt: null,
+          windowSeconds: 18_000,
+        },
+      });
+
+      const card = container.firstElementChild as HTMLElement;
+      const styles = getComputedStyle(card);
+      expect(card).toHaveClass(`quota-card--${tier}`);
+      expect(styles.getPropertyValue("--progress-start").trim()).toBe(start);
+      expect(styles.getPropertyValue("--progress-end").trim()).toBe(end);
+    },
+  );
+
+  it("uses the shared main-number weight, unit size, and one-pixel sixty-percent highlight", () => {
+    const style = document.createElement("style");
+    style.dataset.quotaCardTestStyle = "true";
+    style.textContent = readFileSync(
+      resolve(process.cwd(), "src/styles.css"),
+      "utf8",
+    );
+    document.head.append(style);
+    const { container } = renderQuota();
+
+    const number = container.querySelector(".primary-metric span") as HTMLElement;
+    const unit = container.querySelector(".primary-metric small") as HTMLElement;
+    expect(getComputedStyle(number).fontWeight).toBe("650");
+    expect(getComputedStyle(number).textShadow).toBe("0 1px 0 rgb(255 255 255 / .6)");
+    expect(getComputedStyle(unit).fontSize).toBe("24px");
+    expect(getComputedStyle(unit).textShadow).toBe("0 1px 0 rgb(255 255 255 / .6)");
+  });
+
   it("renders a weekly-only primary without an empty secondary metric", () => {
     renderQuota({
       shortWindow: {
