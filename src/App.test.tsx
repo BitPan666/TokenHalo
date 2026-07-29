@@ -17,9 +17,11 @@ import type {
 } from "./types";
 
 const mocks = vi.hoisted(() => ({
+  checkForUpdates: vi.fn(),
   fetchSnapshots: vi.fn(),
   getPreferences: vi.fn(),
   listenDesktopEvents: vi.fn(),
+  openReleasePage: vi.fn(),
   setAlwaysOnTop: vi.fn(),
   setWidgetMode: vi.fn(),
   startDragging: vi.fn(),
@@ -29,9 +31,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("./lib/bridge", () => ({
+  checkForUpdates: mocks.checkForUpdates,
   fetchSnapshots: mocks.fetchSnapshots,
   getPreferences: mocks.getPreferences,
   listenDesktopEvents: mocks.listenDesktopEvents,
+  openReleasePage: mocks.openReleasePage,
   setAlwaysOnTop: mocks.setAlwaysOnTop,
   setWidgetMode: mocks.setWidgetMode,
   startDragging: mocks.startDragging,

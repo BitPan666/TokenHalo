@@ -397,6 +397,33 @@ describe("QuotaCard", () => {
     expect(container.querySelector(".quota-orb .aurora")).toBeInTheDocument();
   });
 
+  it("shows a recent cached quota in the collapsed orb after refresh fails", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-28T10:00:00Z"));
+    try {
+      const { container } = render(
+        <QuotaOrb
+          snapshot={{
+            ...snapshot,
+            status: "stale",
+            updatedAt: "2026-07-28T09:55:00Z",
+          }}
+          language="zh-CN"
+          onDrag={vi.fn()}
+          onHover={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByLabelText("5 小时额度剩余 73%"))
+        .toBeInTheDocument();
+      expect(container.querySelector(".orb-metric")).toHaveTextContent("73%");
+      expect(container.querySelector(".orb-unavailable"))
+        .not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the collapsed orb appearance stable while idle and hovered", () => {
     vi.useFakeTimers();
     try {

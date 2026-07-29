@@ -1,4 +1,5 @@
 import type { ProviderSnapshot, WidgetPreferences } from "../types";
+import packageInfo from "../../package.json";
 import {
   createWidgetWindowController,
   type WidgetDisplayMode,
@@ -22,6 +23,13 @@ const mockSnapshot: ProviderSnapshot = {
   message: null,
 };
 
+export interface UpdateCheckResult {
+  currentVersion: string;
+  latestVersion: string;
+  updateAvailable: boolean;
+  releaseUrl: string;
+}
+
 export const isTauri = () => "__TAURI_INTERNALS__" in window;
 
 export async function fetchSnapshots(force = false): Promise<ProviderSnapshot[]> {
@@ -40,6 +48,28 @@ export async function updatePreferences(value: WidgetPreferences): Promise<void>
   if (!isTauri()) return;
   const { invoke } = await import("@tauri-apps/api/core");
   await invoke("set_preferences", { preferences: value });
+}
+
+export async function checkForUpdates(): Promise<UpdateCheckResult> {
+  if (!isTauri()) {
+    return {
+      currentVersion: packageInfo.version,
+      latestVersion: packageInfo.version,
+      updateAvailable: false,
+      releaseUrl: "https://github.com/BitPan666/TokenHalo/releases/latest",
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<UpdateCheckResult>("check_for_updates");
+}
+
+export async function openReleasePage(releaseUrl: string): Promise<void> {
+  if (!isTauri()) {
+    window.open(releaseUrl, "_blank", "noopener,noreferrer");
+    return;
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("open_release_page");
 }
 
 export async function setClickThrough(locked: boolean): Promise<WidgetPreferences> {

@@ -5,6 +5,12 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
+import packageInfo from "../../package.json";
+import {
+  checkForUpdates,
+  openReleasePage,
+  type UpdateCheckResult,
+} from "../lib/bridge";
 import { copy, normalizeLanguage } from "../lib/i18n";
 import type { GlassStyle, WidgetPreferences } from "../types";
 
@@ -20,12 +26,22 @@ interface Props {
   onSave: (preferences: WidgetPreferences) => Promise<void>;
   onClose: () => void;
   disabled?: boolean;
+  onCheckForUpdates?: () => Promise<UpdateCheckResult>;
+  onOpenReleasePage?: (releaseUrl: string) => Promise<void>;
 }
 
 interface ActiveGesture {
   pointerId: number | undefined;
   target: HTMLInputElement;
 }
+
+type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "current"
+  | "available"
+  | "error"
+  | "openError";
 
 const DEFAULT_GLASS: GlassValues = {
   glassTransparency: 40,
@@ -59,12 +75,21 @@ export function AppearanceSheet({
   onSave,
   onClose,
   disabled = false,
+  onCheckForUpdates = checkForUpdates,
+  onOpenReleasePage = openReleasePage,
 }: Props) {
   const language = normalizeLanguage(preferences.language);
   const t = copy[language];
   const [draft, setDraft] = useState(() => glassValues(preferences));
+  const [activeSection, setActiveSection] = useState<"appearance" | "about">(
+    "appearance",
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>("idle");
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(
+    null,
+  );
   const preferencesRef = useRef(preferences);
   const savedRef = useRef(glassValues(preferences));
   const draftRef = useRef(draft);
@@ -221,6 +246,64 @@ export function AppearanceSheet({
   };
 
   const controlsDisabled = disabled || saving;
+  const updateStatusCopy = updateStatus === "checking"
+    ? t.appearanceUpdateChecking
+    : updateStatus === "current"
+      ? t.appearanceUpToDate
+      : updateStatus === "available" && updateResult
+        ? t.appearanceUpdateAvailable(updateResult.latestVersion)
+        : updateStatus === "error"
+          ? t.appearanceUpdateFailed
+          : updateStatus === "openError"
+            ? t.appearanceUpdateOpenFailed
+            : t.appearanceUpdateIdle;
+  const updateNote = updateStatus === "current"
+    ? t.appearanceUpdateCurrentNote
+    : updateStatus === "available"
+      ? t.appearanceUpdateNewNote
+      : updateStatus === "error"
+        ? t.appearanceUpdateFailedNote
+        : updateStatus === "openError"
+          ? t.appearanceUpdateOpenFailedNote
+          : t.appearanceUpdateIdleNote;
+  const updateIcon = updateStatus === "current"
+    ? "✓"
+    : updateStatus === "available"
+      ? "↑"
+      : updateStatus === "error" || updateStatus === "openError"
+        ? "!"
+        : updateStatus === "checking"
+          ? "↻"
+          : "–";
+  const updateButtonCopy = updateStatus === "available"
+    ? t.appearanceUpdateOpen
+    : updateStatus === "error" || updateStatus === "openError"
+      ? t.appearanceUpdateCheckAgain
+      : updateStatus === "checking"
+        ? t.appearanceCheckingUpdates
+        : t.appearanceCheckUpdates;
+
+  const performUpdateCheck = async () => {
+    if (updateStatus === "checking") return;
+    setUpdateStatus("checking");
+    try {
+      const result = await onCheckForUpdates();
+      setUpdateResult(result);
+      setUpdateStatus(result.updateAvailable ? "available" : "current");
+    } catch {
+      setUpdateResult(null);
+      setUpdateStatus("error");
+    }
+  };
+
+  const openUpdate = async () => {
+    if (!updateResult) return;
+    try {
+      await onOpenReleasePage(updateResult.releaseUrl);
+    } catch {
+      setUpdateStatus("openError");
+    }
+  };
 
   return (
     <section
@@ -291,106 +374,182 @@ export function AppearanceSheet({
         </button>
       </header>
 
-      <div className="appearance-control">
-        <label htmlFor="glass-transparency">
-          <span>{t.appearanceTransparency}</span>
-          <output htmlFor="glass-transparency">{draft.glassTransparency}%</output>
-        </label>
-        <input
-          id="glass-transparency"
-          type="range"
-          min="10"
-          max="90"
-          value={draft.glassTransparency}
-          aria-label={t.appearanceTransparency}
-          disabled={controlsDisabled}
-          onChange={(event) => updateValue(
-            "glassTransparency",
-            Number(event.currentTarget.value),
-          )}
-          onPointerDown={(event) => {
-            stopPointer(event);
-            activeGestureRef.current = {
-              pointerId: event.pointerId,
-              target: event.currentTarget,
-            };
-            try {
-              event.currentTarget.setPointerCapture?.(event.pointerId);
-            } catch {
-              // Window-level listeners are the fallback when capture is unavailable.
-            }
-          }}
-          onPointerUp={(event) => {
-            stopPointer(event);
-            if (!finishPointerGesture(event.pointerId)) void persist();
-          }}
-          onPointerCancel={(event) => {
-            stopPointer(event);
-            finishPointerGesture(event.pointerId);
-          }}
-          onKeyDown={stopKey}
-          onKeyUp={() => void persist()}
-        />
-      </div>
-
-      <div className="appearance-control">
-        <span className="appearance-control-label">{t.appearanceStyle}</span>
-        <div className="appearance-segments" role="group" aria-label={t.appearanceStyle}>
-          {([
-            ["clear", t.appearanceStyleClear],
-            ["regular", t.appearanceStyleRegular],
-          ] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={draft.glassStyle === value}
-              disabled={controlsDisabled}
-              onClick={() => chooseValue({ glassStyle: value })}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="appearance-control">
-        <span className="appearance-control-label">{t.appearanceEffect}</span>
-        <div className="appearance-segments" role="group" aria-label={t.appearanceEffect}>
-          {([
-            [20, t.appearanceEffectWeak],
-            [40, t.appearanceEffectMedium],
-            [60, t.appearanceEffectStrong],
-          ] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={effectStrength(draft.glassBlurStrength) === value}
-              disabled={controlsDisabled}
-              onClick={() => chooseValue({ glassBlurStrength: value })}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <button
-        type="button"
-        className="appearance-reset"
-        onClick={() => {
-          preview(DEFAULT_GLASS);
-          void persist(true);
-        }}
-        disabled={controlsDisabled}
+      <div
+        className="appearance-tabs"
+        role="tablist"
+        aria-label={t.appearanceSections}
       >
-        {t.appearanceReset}
-      </button>
-
-      <div className="appearance-data-note">
-        <strong>{t.appearanceDataTitle}</strong>
-        <p>{t.appearanceDataLocal}</p>
-        <p>{t.appearanceDataAccuracy}</p>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSection === "appearance"}
+          aria-controls="appearance-controls-panel"
+          id="appearance-controls-tab"
+          disabled={controlsDisabled}
+          onClick={() => setActiveSection("appearance")}
+        >
+          {t.appearanceAppearanceTab}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSection === "about"}
+          aria-controls="appearance-about-panel"
+          id="appearance-about-tab"
+          disabled={controlsDisabled}
+          onClick={() => setActiveSection("about")}
+        >
+          {t.appearanceAboutTab}
+        </button>
       </div>
+
+      {activeSection === "appearance" ? (
+        <div
+          className="appearance-page appearance-page--controls"
+          id="appearance-controls-panel"
+          role="tabpanel"
+          aria-labelledby="appearance-controls-tab"
+        >
+          <div className="appearance-control">
+            <label htmlFor="glass-transparency">
+              <span>{t.appearanceTransparency}</span>
+              <output htmlFor="glass-transparency">{draft.glassTransparency}%</output>
+            </label>
+            <input
+              id="glass-transparency"
+              type="range"
+              min="10"
+              max="90"
+              value={draft.glassTransparency}
+              aria-label={t.appearanceTransparency}
+              disabled={controlsDisabled}
+              onChange={(event) => updateValue(
+                "glassTransparency",
+                Number(event.currentTarget.value),
+              )}
+              onPointerDown={(event) => {
+                stopPointer(event);
+                activeGestureRef.current = {
+                  pointerId: event.pointerId,
+                  target: event.currentTarget,
+                };
+                try {
+                  event.currentTarget.setPointerCapture?.(event.pointerId);
+                } catch {
+                  // Window-level listeners are the fallback when capture is unavailable.
+                }
+              }}
+              onPointerUp={(event) => {
+                stopPointer(event);
+                if (!finishPointerGesture(event.pointerId)) void persist();
+              }}
+              onPointerCancel={(event) => {
+                stopPointer(event);
+                finishPointerGesture(event.pointerId);
+              }}
+              onKeyDown={stopKey}
+              onKeyUp={() => void persist()}
+            />
+          </div>
+
+          <div className="appearance-control">
+            <span className="appearance-control-label">{t.appearanceStyle}</span>
+            <div className="appearance-segments" role="group" aria-label={t.appearanceStyle}>
+              {([
+                ["clear", t.appearanceStyleClear],
+                ["regular", t.appearanceStyleRegular],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={draft.glassStyle === value}
+                  disabled={controlsDisabled}
+                  onClick={() => chooseValue({ glassStyle: value })}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="appearance-control">
+            <span className="appearance-control-label">{t.appearanceEffect}</span>
+            <div className="appearance-segments" role="group" aria-label={t.appearanceEffect}>
+              {([
+                [20, t.appearanceEffectWeak],
+                [40, t.appearanceEffectMedium],
+                [60, t.appearanceEffectStrong],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={effectStrength(draft.glassBlurStrength) === value}
+                  disabled={controlsDisabled}
+                  onClick={() => chooseValue({ glassBlurStrength: value })}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="appearance-reset"
+            onClick={() => {
+              preview(DEFAULT_GLASS);
+              void persist(true);
+            }}
+            disabled={controlsDisabled}
+          >
+            {t.appearanceReset}
+          </button>
+        </div>
+      ) : (
+        <div
+          className="appearance-page appearance-page--about"
+          id="appearance-about-panel"
+          role="tabpanel"
+          aria-labelledby="appearance-about-tab"
+        >
+          <div className="appearance-data-note">
+            <strong>{t.appearanceDataTitle}</strong>
+            <p>{t.appearanceDataLocal}</p>
+            <p>{t.appearanceDataAccuracy}</p>
+          </div>
+
+          <div className="appearance-version-card">
+            <strong>{t.appearanceVersionTitle}</strong>
+            <div className="appearance-version-row">
+              <span>{t.appearanceCurrentVersion(packageInfo.version)}</span>
+              <span
+                className="appearance-version-status"
+                data-status={updateStatus}
+                role="status"
+                aria-live="polite"
+              >
+                <span aria-hidden="true">{updateIcon}</span>
+                {updateStatusCopy}
+              </span>
+              <p>{updateNote}</p>
+            </div>
+            <button
+              type="button"
+              data-action={updateStatus === "available" ? "download" : "check"}
+              disabled={controlsDisabled || updateStatus === "checking"}
+              onClick={() => {
+                if (updateStatus === "available") {
+                  void openUpdate();
+                } else {
+                  void performUpdateCheck();
+                }
+              }}
+            >
+              {updateButtonCopy}
+            </button>
+          </div>
+        </div>
+      )}
 
       {error ? (
         <p className="appearance-save-error" role="status" aria-live="polite">

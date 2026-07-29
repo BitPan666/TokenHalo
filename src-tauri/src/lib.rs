@@ -8,6 +8,7 @@ mod macos_glass;
 mod macos_overlay;
 mod models;
 mod token_stats;
+mod updates;
 
 use std::{
     fs,
@@ -41,6 +42,45 @@ struct AppState {
     fetch_lock: tokio::sync::Mutex<()>,
     snapshot_cache: Mutex<Option<(Instant, Vec<ProviderSnapshot>)>>,
     token_stats: token_stats::TokenStatsService,
+}
+
+#[cfg(test)]
+mod update_contract_tests {
+    use crate::updates::release_info_from_redirect;
+
+    #[test]
+    fn release_redirect_reports_a_newer_semantic_version() {
+        let result = release_info_from_redirect(
+            "0.1.9",
+            "https://github.com/BitPan666/TokenHalo/releases/tag/v0.1.10",
+        )
+        .unwrap();
+
+        assert_eq!(result.current_version, "0.1.9");
+        assert_eq!(result.latest_version, "0.1.10");
+        assert!(result.update_available);
+    }
+
+    #[test]
+    fn release_redirect_accepts_an_equal_v_prefixed_version() {
+        let result = release_info_from_redirect(
+            "0.1.5",
+            "https://github.com/BitPan666/TokenHalo/releases/tag/v0.1.5",
+        )
+        .unwrap();
+
+        assert!(!result.update_available);
+    }
+
+    #[test]
+    fn release_redirect_rejects_an_unrelated_location() {
+        let result = release_info_from_redirect(
+            "0.1.5",
+            "https://github.com/another/repository/releases/tag/v9.0.0",
+        );
+
+        assert!(result.is_err());
+    }
 }
 
 async fn fetch_snapshots_uncached(state: &State<'_, AppState>) -> Vec<ProviderSnapshot> {
@@ -497,6 +537,18 @@ fn set_native_glass_mode(_mode: String) -> Result<&'static str, String> {
     Ok("cssFallback")
 }
 
+#[tauri::command]
+async fn check_for_updates(
+    state: State<'_, AppState>,
+) -> Result<updates::UpdateCheckResult, String> {
+    updates::check_for_updates(&state.client, env!("CARGO_PKG_VERSION")).await
+}
+
+#[tauri::command]
+fn open_release_page() -> Result<(), String> {
+    updates::open_latest_release()
+}
+
 fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "Show / Hide", true, None::<&str>)?;
     let refresh = MenuItem::with_id(app, "refresh", "Refresh now", true, None::<&str>)?;
@@ -708,7 +760,9 @@ pub fn run() {
             set_preferences,
             set_widget_locked,
             set_widget_always_on_top,
-            set_native_glass_mode
+            set_native_glass_mode,
+            check_for_updates,
+            open_release_page
         ])
         .on_tray_icon_event(|app, event| {
             if let TrayIconEvent::Click {

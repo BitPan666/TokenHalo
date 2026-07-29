@@ -37,6 +37,363 @@ afterEach(() => {
 });
 
 describe("AppearanceSheet", () => {
+  it("switches from appearance controls to local data and version information", () => {
+    render(
+      <AppearanceSheet
+        preferences={preferences}
+        onPreview={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: "外观" }))
+      .toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("slider", { name: "玻璃透明度" }))
+      .toBeInTheDocument();
+    expect(screen.queryByText("版本与更新")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "关于" }));
+
+    expect(screen.getByRole("tab", { name: "关于" }))
+      .toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("slider", { name: "玻璃透明度" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByText("数据来源与准确性")).toBeInTheDocument();
+    expect(screen.getByText("版本与更新")).toBeInTheDocument();
+    expect(screen.getByText("当前版本 v0.1.6")).toBeInTheDocument();
+    expect(screen.getByText("尚未检查更新")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "检查更新" }))
+      .toBeEnabled();
+  });
+
+  it("reports that the installed version is current after a manual check", async () => {
+    const onCheckForUpdates = vi.fn().mockResolvedValue({
+      currentVersion: "0.1.5",
+      latestVersion: "0.1.5",
+      updateAvailable: false,
+      releaseUrl: "https://github.com/BitPan666/TokenHalo/releases/tag/v0.1.5",
+    });
+    render(
+      <AppearanceSheet
+        preferences={preferences}
+        onPreview={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onClose={vi.fn()}
+        onCheckForUpdates={onCheckForUpdates}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "关于" }));
+    fireEvent.click(screen.getByRole("button", { name: "检查更新" }));
+
+    expect(await screen.findByText("已是最新版本")).toBeInTheDocument();
+    expect(onCheckForUpdates).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "检查更新" })).toBeEnabled();
+  });
+
+  it.each([
+    ["local statistics", undefined],
+    ["remaining quota", "quota-card"],
+  ])(
+    "uses the agreed settings typography in the %s card",
+    (_card, wrapperClassName) => {
+      const style = document.createElement("style");
+      style.dataset.appearanceSheetTestStyle = "true";
+      style.textContent = readFileSync(
+        resolve(process.cwd(), "src/styles.css"),
+        "utf8",
+      );
+      document.head.append(style);
+      render(
+        <div className={wrapperClassName}>
+          <AppearanceSheet
+            preferences={preferences}
+            onPreview={vi.fn()}
+            onSave={vi.fn().mockResolvedValue(undefined)}
+            onClose={vi.fn()}
+          />
+        </div>,
+      );
+
+      fireEvent.click(screen.getByRole("tab", { name: "关于" }));
+      const requestedTypography = [
+        ["title", screen.getByRole("heading", { name: "设置与说明" }), "16px"],
+        ["subtitle", screen.getByText("外观参数、数据说明与版本信息"), "11px"],
+        ["close", screen.getByRole("button", { name: "关闭设置与说明" }), "18px"],
+        ["tabs", screen.getByRole("tab", { name: "关于" }), "12px"],
+        ["data title", screen.getByText("数据来源与准确性"), "11px"],
+        ["data copy", screen.getByText(/仅统计本机可读取的 Codex 日志/), "10px"],
+        ["version title", screen.getByText("版本与更新"), "11px"],
+        ["current version", screen.getByText("当前版本 v0.1.6"), "10px"],
+        ["update status", screen.getByRole("status"), "10px"],
+        [
+          "GitHub note",
+          screen.getByText("仅在点击按钮时连接 GitHub 检查正式版本。"),
+          "9px",
+        ],
+        ["update button", screen.getByRole("button", { name: "检查更新" }), "10px"],
+      ] as const;
+
+      for (const [label, element, expectedFontSize] of requestedTypography) {
+        expect(
+          getComputedStyle(element).fontSize,
+          `${label} should use ${expectedFontSize}`,
+        ).toBe(expectedFontSize);
+      }
+    },
+  );
+
+  it.each([
+    ["local statistics", undefined],
+    ["remaining quota", "quota-card"],
+  ])(
+    "uses the same appearance-page vertical rhythm in the %s card",
+    (_card, wrapperClassName) => {
+      const style = document.createElement("style");
+      style.dataset.appearanceSheetTestStyle = "true";
+      style.textContent = readFileSync(
+        resolve(process.cwd(), "src/styles.css"),
+        "utf8",
+      );
+      document.head.append(style);
+      render(
+        <div className={wrapperClassName}>
+          <AppearanceSheet
+            preferences={preferences}
+            onPreview={vi.fn()}
+            onSave={vi.fn().mockResolvedValue(undefined)}
+            onClose={vi.fn()}
+          />
+        </div>,
+      );
+
+      const subtitle = screen.getByText(
+        "外观参数、数据说明与版本信息",
+      );
+      const appearancePage = screen.getByRole("tabpanel", { name: "外观" });
+      const transparencyControl = screen.getByText(
+        "玻璃透明度",
+      ).parentElement?.parentElement as HTMLElement;
+
+      expect(getComputedStyle(screen.getByRole("dialog")).gap).toBe("12px");
+      expect(getComputedStyle(subtitle).marginTop).toBe("5px");
+      expect(getComputedStyle(subtitle).lineHeight).toBe("1.4");
+      expect(getComputedStyle(appearancePage).gap).toBe("12px");
+      expect(getComputedStyle(transparencyControl).gap).toBe("7px");
+    },
+  );
+
+  it("keeps the remaining-quota header and tabs fixed while switching sections", () => {
+    const style = document.createElement("style");
+    style.dataset.appearanceSheetTestStyle = "true";
+    style.textContent = readFileSync(
+      resolve(process.cwd(), "src/styles.css"),
+      "utf8",
+    );
+    document.head.append(style);
+    render(
+      <div className="quota-card">
+        <AppearanceSheet
+          preferences={preferences}
+          onPreview={vi.fn()}
+          onSave={vi.fn().mockResolvedValue(undefined)}
+          onClose={vi.fn()}
+        />
+      </div>,
+    );
+
+    const fixedMetrics = () => {
+      const dialogStyle = getComputedStyle(screen.getByRole("dialog"));
+      const headerStyle = getComputedStyle(
+        screen.getByRole("heading", { name: "设置与说明" }).parentElement
+          ?.parentElement as HTMLElement,
+      );
+      const subtitleStyle = getComputedStyle(screen.getByText(
+        "外观参数、数据说明与版本信息",
+      ));
+      const tabsStyle = getComputedStyle(screen.getByRole("tablist"));
+
+      return {
+        dialogGap: dialogStyle.gap,
+        headerFlexShrink: headerStyle.flexShrink,
+        subtitleMarginTop: subtitleStyle.marginTop,
+        subtitleLineHeight: subtitleStyle.lineHeight,
+        tabsFlexShrink: tabsStyle.flexShrink,
+        tabsHeight: tabsStyle.height,
+        tabsPaddingTop: tabsStyle.paddingTop,
+        tabsPaddingBottom: tabsStyle.paddingBottom,
+      };
+    };
+
+    const appearanceMetrics = fixedMetrics();
+    expect(appearanceMetrics.headerFlexShrink).toBe("0");
+    expect(appearanceMetrics.tabsFlexShrink).toBe("0");
+    fireEvent.click(screen.getByRole("tab", { name: "关于" }));
+
+    expect(fixedMetrics()).toEqual(appearanceMetrics);
+    expect(getComputedStyle(
+      screen.getByRole("tabpanel", { name: "关于" }),
+    ).overflowY).toBe("auto");
+  });
+
+  it.each([
+    ["local statistics", undefined],
+    ["remaining quota", "quota-card"],
+  ])(
+    "uses the same appearance-control typography in the %s card",
+    (_card, wrapperClassName) => {
+      const style = document.createElement("style");
+      style.dataset.appearanceSheetTestStyle = "true";
+      style.textContent = readFileSync(
+        resolve(process.cwd(), "src/styles.css"),
+        "utf8",
+      );
+      document.head.append(style);
+      render(
+        <div className={wrapperClassName}>
+          <AppearanceSheet
+            preferences={preferences}
+            onPreview={vi.fn()}
+            onSave={vi.fn().mockResolvedValue(undefined)}
+            onClose={vi.fn()}
+          />
+        </div>,
+      );
+
+      const requestedTypography = [
+        ["title", screen.getByRole("heading", { name: "设置与说明" }), "16px"],
+        ["subtitle", screen.getByText("外观参数、数据说明与版本信息"), "11px"],
+        ["close", screen.getByRole("button", { name: "关闭设置与说明" }), "18px"],
+        ["tabs", screen.getByRole("tab", { name: "外观" }), "12px"],
+        [
+          "transparency label",
+          screen.getByText("玻璃透明度").parentElement as HTMLElement,
+          "11px",
+        ],
+        ["transparency value", screen.getByText("40%"), "9px"],
+        ["glass style label", screen.getByText("玻璃样式"), "11px"],
+        ["clear option", screen.getByRole("button", { name: "清透" }), "10px"],
+        ["regular option", screen.getByRole("button", { name: "标准" }), "10px"],
+        ["effect label", screen.getByText("效果强度"), "11px"],
+        ["weak option", screen.getByRole("button", { name: "弱" }), "10px"],
+        ["medium option", screen.getByRole("button", { name: "中" }), "10px"],
+        ["strong option", screen.getByRole("button", { name: "强" }), "10px"],
+        [
+          "reset appearance",
+          screen.getByRole("button", { name: "恢复默认外观" }),
+          "10px",
+        ],
+      ] as const;
+
+      for (const [label, element, expectedFontSize] of requestedTypography) {
+        expect(
+          getComputedStyle(element).fontSize,
+          `${label} should use ${expectedFontSize}`,
+        ).toBe(expectedFontSize);
+      }
+    },
+  );
+
+  it.each([
+    ["local statistics", undefined],
+    ["remaining quota", "quota-card"],
+  ])(
+    "uses the same relaxed explanatory line height in the %s card",
+    (_card, wrapperClassName) => {
+      const style = document.createElement("style");
+      style.dataset.appearanceSheetTestStyle = "true";
+      style.textContent = readFileSync(
+        resolve(process.cwd(), "src/styles.css"),
+        "utf8",
+      );
+      document.head.append(style);
+      render(
+        <div className={wrapperClassName}>
+          <AppearanceSheet
+            preferences={preferences}
+            onPreview={vi.fn()}
+            onSave={vi.fn().mockResolvedValue(undefined)}
+            onClose={vi.fn()}
+          />
+        </div>,
+      );
+
+      fireEvent.click(screen.getByRole("tab", { name: "关于" }));
+
+      expect(getComputedStyle(
+        screen.getByText(/仅统计本机可读取的 Codex 日志/),
+      ).lineHeight).toBe("1.35");
+      expect(getComputedStyle(
+        screen.getByText("仅在点击按钮时连接 GitHub 检查正式版本。"),
+      ).lineHeight).toBe("1.35");
+    },
+  );
+
+  it("shows the latest version and opens its release page when an update exists", async () => {
+    const releaseUrl =
+      "https://github.com/BitPan666/TokenHalo/releases/tag/v0.1.6";
+    const onOpenReleasePage = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AppearanceSheet
+        preferences={preferences}
+        onPreview={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onClose={vi.fn()}
+        onCheckForUpdates={vi.fn().mockResolvedValue({
+          currentVersion: "0.1.5",
+          latestVersion: "0.1.6",
+          updateAvailable: true,
+          releaseUrl,
+        })}
+        onOpenReleasePage={onOpenReleasePage}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "关于" }));
+    fireEvent.click(screen.getByRole("button", { name: "检查更新" }));
+
+    expect(await screen.findByText("发现新版本 v0.1.6")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "前往下载" }));
+    await waitFor(() => expect(onOpenReleasePage).toHaveBeenCalledWith(releaseUrl));
+  });
+
+  it("disables repeated checks while GitHub is still responding", () => {
+    render(
+      <AppearanceSheet
+        preferences={preferences}
+        onPreview={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onClose={vi.fn()}
+        onCheckForUpdates={vi.fn().mockReturnValue(new Promise(() => {}))}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "关于" }));
+    fireEvent.click(screen.getByRole("button", { name: "检查更新" }));
+
+    expect(screen.getByText("正在检查 GitHub…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "正在检查" })).toBeDisabled();
+  });
+
+  it("keeps the check action available after a network failure", async () => {
+    render(
+      <AppearanceSheet
+        preferences={preferences}
+        onPreview={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onClose={vi.fn()}
+        onCheckForUpdates={vi.fn().mockRejectedValue(new Error("offline"))}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "关于" }));
+    fireEvent.click(screen.getByRole("button", { name: "检查更新" }));
+
+    expect(await screen.findByText("检查失败，请稍后重试")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重新检查" })).toBeEnabled();
+  });
+
   it("shows transparency plus native glass style and three effect strengths", () => {
     render(
       <AppearanceSheet
@@ -291,6 +648,7 @@ describe("AppearanceSheet", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("tab", { name: "关于" }));
     expect(screen.getByText(/仅统计本机可读取的 Codex 日志/))
       .toBeInTheDocument();
     expect(screen.getByText(/不代表官方账单或账户级用量/))

@@ -228,7 +228,10 @@ export const QuotaOrb = memo(function QuotaOrb({ snapshot, onDrag, onHover, lang
   const primary = snapshot.shortWindow ? clampPercent(snapshot.shortWindow.remainingPercent) : null;
   const primaryPeriod = classifyUsagePeriod(snapshot.shortWindow?.windowSeconds ?? 0);
   const tier = quotaTier(primary);
-  const available = snapshot.status === "ok" && primary !== null;
+  const staleAge = Date.now() - new Date(snapshot.updatedAt).getTime();
+  const staleExpired = snapshot.status === "stale" && staleAge > 30 * 60_000;
+  const available = primary !== null
+    && (snapshot.status === "ok" || (snapshot.status === "stale" && !staleExpired));
 
   const handleMouseEnter = () => {
     onHover(true);

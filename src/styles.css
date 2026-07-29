@@ -698,6 +698,7 @@ button { font: inherit; }
 
 .appearance-sheet-header {
   min-height: 48px;
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -720,7 +721,7 @@ button { font: inherit; }
 .appearance-sheet-header p {
   margin-top: 5px;
   color: var(--stats-muted);
-  font-size: 9.5px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -736,8 +737,45 @@ button { font: inherit; }
   color: #27445f;
   background: rgb(255 255 255 / .18);
   cursor: pointer;
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1;
+}
+
+.appearance-tabs {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid rgb(255 255 255 / .5);
+  border-radius: 12px;
+  background: rgb(89 129 166 / .08);
+}
+
+.appearance-tabs button {
+  min-height: 27px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  color: #536b82;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.appearance-tabs button[aria-selected="true"] {
+  color: #143b69;
+  background: rgb(255 255 255 / .58);
+  box-shadow: 0 1px 5px rgb(39 78 117 / .12);
+}
+
+.appearance-page {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .appearance-control {
@@ -793,7 +831,7 @@ button { font: inherit; }
   min-width: 34px;
   color: #1e5da6;
   text-align: right;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 720;
   font-variant-numeric: tabular-nums;
 }
@@ -807,6 +845,7 @@ button { font: inherit; }
 }
 
 .appearance-reset {
+  margin-top: auto;
   min-height: 30px;
   align-self: flex-start;
   padding: 0 12px;
@@ -832,30 +871,139 @@ button { font: inherit; }
 }
 
 .appearance-data-note {
-  margin-top: auto;
   padding: 10px 11px;
   border: 1px solid rgb(255 255 255 / .34);
   border-radius: 12px;
   color: #53677d;
   background: rgb(255 255 255 / .16);
-  font-size: 8.5px;
-  line-height: 1.38;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .appearance-data-note strong {
   display: block;
   margin-bottom: 4px;
   color: #31475f;
-  font-size: 9.5px;
+  font-size: 11px;
+}
+
+.appearance-data-note p {
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .appearance-data-note p + p {
   margin-top: 3px;
 }
 
+.appearance-version-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 11px;
+  border: 1px solid rgb(255 255 255 / .38);
+  border-radius: 12px;
+  color: #53677d;
+  background: rgb(255 255 255 / .18);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.appearance-version-card > strong {
+  grid-column: 1 / -1;
+  color: #31475f;
+  font-size: 11px;
+}
+
+.appearance-version-row {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  font-weight: 650;
+}
+
+.appearance-version-row > span:first-child {
+  font-size: 10px;
+}
+
+.appearance-version-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #47735c;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.appearance-version-status > span {
+  width: 13px;
+  height: 13px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #317a53;
+  background: rgb(93 210 143 / .18);
+}
+
+.appearance-version-status[data-status="idle"],
+.appearance-version-status[data-status="checking"] {
+  color: #607488;
+}
+
+.appearance-version-status[data-status="idle"] > span,
+.appearance-version-status[data-status="checking"] > span {
+  color: #536b82;
+  background: rgb(83 107 130 / .1);
+}
+
+.appearance-version-status[data-status="available"] {
+  color: #205eaa;
+}
+
+.appearance-version-status[data-status="available"] > span {
+  color: #1f67bd;
+  background: rgb(69 137 225 / .16);
+}
+
+.appearance-version-status[data-status="error"],
+.appearance-version-status[data-status="openError"] {
+  color: #9a4b45;
+}
+
+.appearance-version-status[data-status="error"] > span,
+.appearance-version-status[data-status="openError"] > span {
+  color: #a64943;
+  background: rgb(218 94 84 / .14);
+}
+
+.appearance-version-card > button {
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgb(53 93 139 / .18);
+  border-radius: 9px;
+  color: #294762;
+  background: rgb(255 255 255 / .28);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.appearance-version-card > button[data-action="download"] {
+  border-color: rgb(46 107 183 / .3);
+  color: #174d8d;
+  background: rgb(255 255 255 / .5);
+}
+
+.appearance-version-row > p {
+  margin: 0;
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
 .quota-card .appearance-sheet {
   inset: 8px;
-  gap: 7px;
+  gap: 12px;
   padding: 14px;
   border-radius: 28px;
 }
@@ -865,28 +1013,59 @@ button { font: inherit; }
   gap: 10px;
 }
 
-.quota-card .appearance-sheet-header h2 {
-  font-size: 14px;
-}
-
 .quota-card .appearance-sheet-header p {
-  margin-top: 2px;
-  font-size: 8px;
-  line-height: 1.25;
+  margin-top: 5px;
+  line-height: 1.4;
 }
 
 .quota-card .appearance-sheet-close {
   width: 24px;
   height: 24px;
-  font-size: 16px;
+}
+
+.quota-card .appearance-tabs {
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+}
+
+.quota-card .appearance-tabs button {
+  min-height: 21px;
+  padding: 0 5px;
+  border-radius: 7px;
+}
+
+.quota-card .appearance-page {
+  gap: 7px;
+}
+
+.quota-card .appearance-page--controls {
+  gap: 12px;
+}
+
+.quota-card .appearance-page--about {
+  gap: 5px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.quota-card .appearance-page--about::-webkit-scrollbar {
+  display: none;
 }
 
 .quota-card .appearance-control {
   gap: 3px;
 }
 
+.quota-card .appearance-page--controls .appearance-control {
+  gap: 7px;
+}
+
 .quota-card .appearance-control label,
-.quota-card .appearance-control-label,
+.quota-card .appearance-control-label {
+  font-size: 11px;
+}
+
 .quota-card .appearance-control output {
   font-size: 9px;
 }
@@ -904,28 +1083,48 @@ button { font: inherit; }
   min-height: 20px;
   padding: 0 5px;
   border-radius: 7px;
-  font-size: 8px;
 }
 
 .quota-card .appearance-reset {
   min-height: 24px;
   padding: 0 9px;
-  font-size: 9px;
 }
 
 .quota-card .appearance-data-note {
   padding: 7px 8px;
-  font-size: 7px;
-  line-height: 1.25;
 }
 
 .quota-card .appearance-data-note strong {
   margin-bottom: 2px;
-  font-size: 8px;
 }
 
 .quota-card .appearance-data-note p + p {
   margin-top: 1px;
+}
+
+.quota-card .appearance-version-card {
+  gap: 4px 6px;
+  padding: 7px 8px;
+  border-radius: 10px;
+}
+
+.quota-card .appearance-version-row {
+  gap: 1px;
+}
+
+.quota-card .appearance-version-status {
+  gap: 3px;
+}
+
+.quota-card .appearance-version-status > span {
+  width: 10px;
+  height: 10px;
+}
+
+.quota-card .appearance-version-card > button {
+  min-height: 22px;
+  padding: 0 7px;
+  border-radius: 7px;
 }
 
 .appearance-save-error {
