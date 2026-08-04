@@ -31,6 +31,28 @@
         "skipTaskbar": true,
         "shadow": false,
         "visible": true
+      },
+      {
+        "label": "task-toast",
+        "title": "TokenHalo Task",
+        "url": "index.html?surface=task-toast",
+        "width": 260,
+        "height": 96,
+        "minWidth": 260,
+        "minHeight": 96,
+        "maxWidth": 260,
+        "maxHeight": 96,
+        "resizable": false,
+        "maximizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visibleOnAllWorkspaces": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "focus": false,
+        "visible": false
       }
     ],
     "security": { "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:" }

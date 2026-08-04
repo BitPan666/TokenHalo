@@ -26,6 +26,13 @@ struct OverlayPolicy {
 }
 
 fn desired_policy(can_join_all_applications: bool) -> OverlayPolicy {
+    desired_policy_for_surface(can_join_all_applications, true)
+}
+
+fn desired_policy_for_surface(
+    can_join_all_applications: bool,
+    resizable: bool,
+) -> OverlayPolicy {
     let mut collection_behavior = CollectionBehavior::new()
         .full_screen_auxiliary()
         .can_join_all_spaces();
@@ -35,9 +42,15 @@ fn desired_policy(can_join_all_applications: bool) -> OverlayPolicy {
         );
     }
 
+    let style_mask = if resizable {
+        StyleMask::empty().nonactivating_panel().resizable()
+    } else {
+        StyleMask::empty().nonactivating_panel()
+    };
+
     OverlayPolicy {
         level: PanelLevel::Floating,
-        style_mask: StyleMask::empty().nonactivating_panel().resizable(),
+        style_mask,
         collection_behavior,
         hides_on_deactivate: false,
     }
@@ -53,20 +66,27 @@ fn supports_join_all_applications() -> bool {
 pub fn configure(app: &mut tauri::App) -> tauri::Result<()> {
     app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-    let window = app.get_webview_window("widget").ok_or_else(|| {
-        tauri::Error::Io(io::Error::new(
-            io::ErrorKind::NotFound,
-            "widget window missing during macOS overlay setup",
-        ))
-    })?;
-    let panel = window.to_panel::<TokenHaloPanel>()?;
-    let policy = desired_policy(supports_join_all_applications());
+    for (label, resizable) in [("widget", true), ("task-toast", false)] {
+        let window = app.get_webview_window(label).ok_or_else(|| {
+            tauri::Error::Io(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("{label} window missing during macOS overlay setup"),
+            ))
+        })?;
+        let panel = window.to_panel::<TokenHaloPanel>()?;
+        let can_join_all_applications = supports_join_all_applications();
+        let policy = if resizable {
+            desired_policy(can_join_all_applications)
+        } else {
+            desired_policy_for_surface(can_join_all_applications, false)
+        };
 
-    panel.set_level(policy.level.value());
-    panel.set_style_mask(policy.style_mask.into());
-    panel.set_collection_behavior(policy.collection_behavior.into());
-    panel.set_hides_on_deactivate(policy.hides_on_deactivate);
-    panel.set_floating_panel(true);
+        panel.set_level(policy.level.value());
+        panel.set_style_mask(policy.style_mask.into());
+        panel.set_collection_behavior(policy.collection_behavior.into());
+        panel.set_hides_on_deactivate(policy.hides_on_deactivate);
+        panel.set_floating_panel(true);
+    }
 
     Ok(())
 }
@@ -106,5 +126,17 @@ mod tests {
                 .full_screen_auxiliary()
                 .can_join_all_spaces()
         );
+    }
+
+    #[test]
+    fn toast_policy_is_nonactivating_but_not_resizable() {
+        let policy = desired_policy_for_surface(false, false);
+
+        assert_eq!(policy.level, PanelLevel::Floating);
+        assert_eq!(
+            policy.style_mask,
+            StyleMask::empty().nonactivating_panel()
+        );
+        assert!(!policy.hides_on_deactivate);
     }
 }

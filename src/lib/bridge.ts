@@ -5,8 +5,16 @@ import {
   type WidgetDisplayMode,
   type WidgetWindowController,
 } from "./widgetWindow";
+import {
+  createTaskToastWindowController,
+  type TaskToastActionPayload,
+  type TaskToastDisplayPayload,
+  type TaskToastShowRequest,
+  type TaskToastWindowController,
+} from "./taskToastWindow";
 
 let widgetWindowControllerPromise: Promise<WidgetWindowController> | null = null;
+let taskToastWindowControllerPromise: Promise<TaskToastWindowController> | null = null;
 
 const defaultPreferences: WidgetPreferences = { locked: false, alwaysOnTop: true, pinnedProvider: null, autoRotateSeconds: 12, language: "zh-CN", expandedView: "quota", glassTransparency: 40, glassBlurStrength: 40, glassStyle: "regular" };
 
@@ -149,4 +157,100 @@ export async function listenDesktopEvents(handlers: {
   const unlistenPreferences = await listen<WidgetPreferences>("preferences-changed", (event) => handlers.onPreferences(event.payload));
   const unlistenRefresh = await listen("refresh-requested", handlers.onRefresh);
   return () => { unlistenPreferences(); unlistenRefresh(); };
+}
+
+async function getTaskToastWindowController(): Promise<TaskToastWindowController> {
+  if (!taskToastWindowControllerPromise) {
+    taskToastWindowControllerPromise = Promise.all([
+      import("@tauri-apps/api/window"),
+      import("@tauri-apps/api/event"),
+    ]).then(async ([api, eventApi]) => {
+      const widget = await api.Window.getByLabel("widget");
+      const toast = await api.Window.getByLabel("task-toast");
+      if (!widget || !toast) throw new Error("task toast windows unavailable");
+      return createTaskToastWindowController({
+        async readState() {
+          const [orbPosition, orbSize, scaleFactor] = await Promise.all([
+            widget.outerPosition(),
+            widget.outerSize(),
+            widget.scaleFactor(),
+          ]);
+          const monitor = await api.monitorFromPoint(
+            orbPosition.x + orbSize.width / 2,
+            orbPosition.y + orbSize.height / 2,
+          ) ?? await api.currentMonitor();
+          if (!monitor) throw new Error("widget monitor unavailable");
+          return {
+            orbPosition: { x: orbPosition.x, y: orbPosition.y },
+            orbSize: { width: orbSize.width, height: orbSize.height },
+            scaleFactor,
+            workArea: {
+              x: monitor.workArea.position.x,
+              y: monitor.workArea.position.y,
+              width: monitor.workArea.size.width,
+              height: monitor.workArea.size.height,
+            },
+          };
+        },
+        async apply(request) {
+          await toast.setSize(new api.LogicalSize(
+            request.logicalSize.width,
+            request.logicalSize.height,
+          ));
+          await toast.setPosition(new api.PhysicalPosition(
+            request.physicalPosition.x,
+            request.physicalPosition.y,
+          ));
+          await eventApi.emitTo("task-toast", "task-toast-display", request.payload);
+          await toast.show();
+        },
+        async hide() {
+          await eventApi.emitTo("task-toast", "task-toast-hide");
+          await toast.hide();
+        },
+      });
+    });
+  }
+  return taskToastWindowControllerPromise;
+}
+
+export async function showTaskToast(request: TaskToastShowRequest) {
+  if (!isTauri()) return null;
+  return (await getTaskToastWindowController()).show(request);
+}
+
+export async function hideTaskToast() {
+  if (!isTauri()) return;
+  await (await getTaskToastWindowController()).hide();
+}
+
+export async function listenTaskToastSurfaceEvents(handlers: {
+  onDisplay: (payload: TaskToastDisplayPayload) => void;
+  onHide: () => void;
+}): Promise<() => void> {
+  if (!isTauri()) return () => undefined;
+  const { listen } = await import("@tauri-apps/api/event");
+  const unlistenDisplay = await listen<TaskToastDisplayPayload>(
+    "task-toast-display",
+    (event) => handlers.onDisplay(event.payload),
+  );
+  const unlistenHide = await listen("task-toast-hide", handlers.onHide);
+  return () => {
+    unlistenDisplay();
+    unlistenHide();
+  };
+}
+
+export async function emitTaskToastAction(payload: TaskToastActionPayload) {
+  if (!isTauri()) return;
+  const { emitTo } = await import("@tauri-apps/api/event");
+  await emitTo("widget", "task-toast-action", payload);
+}
+
+export async function listenTaskToastActions(
+  handler: (payload: TaskToastActionPayload) => void,
+): Promise<() => void> {
+  if (!isTauri()) return () => undefined;
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<TaskToastActionPayload>("task-toast-action", (event) => handler(event.payload));
 }

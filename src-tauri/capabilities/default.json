@@ -2,14 +2,18 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capabilities for the floating widget",
-  "windows": ["widget"],
+  "windows": ["widget", "task-toast"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
     "core:window:deny-internal-toggle-maximize",
     "core:window:allow-outer-position",
+    "core:window:allow-outer-size",
+    "core:window:allow-scale-factor",
     "core:window:allow-set-size",
     "core:window:allow-set-position",
+    "core:window:allow-show",
+    "core:window:allow-hide",
     "core:window:allow-set-always-on-top",
     "window-state:default"
   ]
