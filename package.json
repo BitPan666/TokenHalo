@@ -4,6 +4,7 @@
   "version": "0.1.6",
   "type": "module",
   "scripts": {
+    "brand:check": "node scripts/check-brand-residue.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
     "test": "vitest run",

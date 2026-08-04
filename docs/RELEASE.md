@@ -24,10 +24,6 @@ git push origin v0.1.0
 
 工作流完成后，到 GitHub Releases 检查草稿发布，确认说明和附件后手动发布。
 
-### Upgrading from TokenHalo
-
-TokenHalo copies supported preferences and the local Token statistics index from the legacy application directory on first launch. It does not delete or modify the legacy directory. Verify TokenHalo before uninstalling the old application; if an old login-start item remains, disable it in the operating system's login-item settings.
-
 ## CI 与构建
 
 `.github/workflows/ci.yml` 会在 push/PR 时执行：

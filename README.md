@@ -84,10 +84,6 @@ Check the release notes to confirm that the downloaded version includes local To
 
 These installers are not platform-code-signed or notarized, so Windows SmartScreen or macOS Gatekeeper may block or warn on first launch. On macOS, open the `.dmg`, drag TokenHalo to Applications, then right-click TokenHalo and choose **Open**. If it is still blocked, allow it in **System Settings → Privacy & Security**. Signing and notarization can be added later to remove most of this first-launch friction.
 
-### Upgrading from TokenHalo
-
-TokenHalo copies supported preferences and the local Token statistics index from the legacy application directory on first launch. It does not delete or modify the legacy directory. Verify TokenHalo before uninstalling the old application; if an old login-start item remains, disable it in the operating system's login-item settings.
-
 ## Feedback
 
 Please use GitHub Issues for bugs, compatibility reports, and feature requests:

@@ -15,10 +15,6 @@ TokenHalo is an independent open-source project. It is not affiliated with, endo
 2. Download the package for your platform.
 3. Unzip the package and run the app.
 
-### Upgrading from TokenHalo
-
-TokenHalo copies supported preferences and the local Token statistics index from the legacy application directory on first launch. It does not delete or modify the legacy directory. Verify TokenHalo before uninstalling the old application; if an old login-start item remains, disable it in the operating system's login-item settings.
-
 ### macOS unsigned app note
 
 This macOS build is unsigned and not notarized. If macOS blocks the first launch:

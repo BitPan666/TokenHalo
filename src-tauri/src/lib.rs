@@ -1,4 +1,3 @@
-mod brand_migration;
 mod codex;
 #[cfg(test)]
 mod config_contract;
@@ -221,27 +220,6 @@ mod preference_commit_tests {
     use crate::models::ExpandedView;
     use std::sync::{mpsc, Arc};
     use std::thread;
-
-    #[test]
-    fn migrated_preferences_are_loaded_by_the_existing_loader() {
-        let root = tempfile::tempdir().unwrap();
-        let legacy = root.path().join(brand_migration::LEGACY_IDENTIFIER);
-        let destination = root.path().join("app.tokenhalo.desktop");
-        fs::create_dir_all(&legacy).unwrap();
-        let mut expected = WidgetPreferences::default();
-        expected.language = "zh-CN".into();
-        fs::write(
-            legacy.join("preferences.json"),
-            serde_json::to_vec(&expected).unwrap(),
-        )
-        .unwrap();
-
-        let report = brand_migration::migrate_legacy_config(root.path(), &destination);
-        let loaded = load_preferences(&destination.join("preferences.json"));
-
-        assert_eq!(report.migrated, 1);
-        assert_eq!(loaded.language, "zh-CN");
-    }
 
     #[test]
     fn concurrent_updates_serialize_the_persisted_and_in_memory_snapshot() {
@@ -706,11 +684,6 @@ pub fn run() {
             macos_overlay::configure(app)?;
 
             let data_dir = app.path().app_config_dir()?;
-            let config_root = app.path().config_dir()?;
-            let migration = brand_migration::migrate_legacy_config(&config_root, &data_dir);
-            if migration.failed > 0 {
-                eprintln!("legacy configuration migration incomplete");
-            }
             let preferences_path = data_dir.join("preferences.json");
             let sessions_root = dirs::home_dir()
                 .unwrap_or_else(|| data_dir.clone())
