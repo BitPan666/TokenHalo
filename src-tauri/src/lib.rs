@@ -6,8 +6,8 @@ mod macos_glass;
 #[cfg(target_os = "macos")]
 mod macos_overlay;
 mod models;
-mod token_stats;
 pub mod task_companion;
+mod token_stats;
 mod updates;
 
 pub fn run_task_hook_if_requested() -> Option<Result<(), String>> {
@@ -46,6 +46,9 @@ struct AppState {
     fetch_lock: tokio::sync::Mutex<()>,
     snapshot_cache: Mutex<Option<(Instant, Vec<ProviderSnapshot>)>>,
     token_stats: token_stats::TokenStatsService,
+    task_inbox_path: PathBuf,
+    task_health_path: PathBuf,
+    codex_hooks_path: PathBuf,
 }
 
 #[cfg(test)]
@@ -442,6 +445,28 @@ fn apply_lock(app: &AppHandle, locked: bool) -> Result<(), String> {
         .map_err(|_| "failed to toggle click-through".to_string())
 }
 
+fn apply_always_on_top(
+    app: &AppHandle,
+    always_on_top: bool,
+    rollback_to: Option<bool>,
+) -> Result<(), String> {
+    let widget = app
+        .get_webview_window("widget")
+        .ok_or_else(|| "widget window missing".to_string())?;
+    widget
+        .set_always_on_top(always_on_top)
+        .map_err(|error| format!("failed to toggle always-on-top: {error}"))?;
+    if let Some(toast) = app.get_webview_window("task-toast") {
+        if let Err(error) = toast.set_always_on_top(always_on_top) {
+            if let Some(previous) = rollback_to {
+                let _ = widget.set_always_on_top(previous);
+            }
+            return Err(format!("failed to toggle task notification layer: {error}"));
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn set_widget_locked(
     locked: bool,
@@ -473,9 +498,6 @@ fn set_widget_always_on_top(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<WidgetPreferences, String> {
-    let window = app
-        .get_webview_window("widget")
-        .ok_or_else(|| "widget window missing".to_string())?;
     let next = commit_preferences(
         &state,
         |current| WidgetPreferences {
@@ -483,9 +505,7 @@ fn set_widget_always_on_top(
             ..current.clone()
         },
         |previous, next| {
-            window
-                .set_always_on_top(next.always_on_top)
-                .map_err(|error| format!("failed to toggle always-on-top: {error}"))?;
+            apply_always_on_top(&app, next.always_on_top, Some(previous.always_on_top))?;
             apply_glass_if_changed(&app, previous, next);
             Ok(())
         },
@@ -530,6 +550,102 @@ async fn check_for_updates(
 #[tauri::command]
 fn open_release_page() -> Result<(), String> {
     updates::open_latest_release()
+}
+
+fn task_connection_status(state: &AppState) -> task_companion::models::ConnectionStatus {
+    use task_companion::models::{ConnectionState, ConnectionStatus};
+    let connection = match task_companion::integration::is_installed(&state.codex_hooks_path) {
+        Ok(false) => ConnectionState::Disconnected,
+        Ok(true) if state.task_health_path.exists() => ConnectionState::Connected,
+        Ok(true) => ConnectionState::NeedsTrust,
+        Err(_) => ConnectionState::Degraded,
+    };
+    ConnectionStatus { state: connection }
+}
+
+#[tauri::command]
+fn get_task_companion_connection(
+    state: State<'_, AppState>,
+) -> task_companion::models::ConnectionStatus {
+    task_connection_status(&state)
+}
+
+#[tauri::command]
+fn get_codex_foreground() -> Option<bool> {
+    task_companion::foreground::is_codex_foreground()
+}
+
+#[tauri::command]
+fn connect_task_companion(
+    state: State<'_, AppState>,
+) -> Result<task_companion::models::ConnectionStatus, String> {
+    let executable =
+        std::env::current_exe().map_err(|_| "failed to locate TokenHalo executable".to_string())?;
+    task_companion::integration::install(
+        &state.codex_hooks_path,
+        &executable,
+        &state.task_inbox_path,
+    )?;
+    let _ = fs::remove_file(&state.task_health_path);
+    Ok(task_connection_status(&state))
+}
+
+#[tauri::command]
+fn disconnect_task_companion(
+    state: State<'_, AppState>,
+) -> Result<task_companion::models::ConnectionStatus, String> {
+    task_companion::integration::uninstall(&state.codex_hooks_path)?;
+    let _ = fs::remove_file(&state.task_health_path);
+    Ok(task_connection_status(&state))
+}
+
+#[tauri::command]
+fn emit_test_task_companion_event(app: AppHandle) -> Result<(), String> {
+    use task_companion::models::{TaskCompanionEvent, TaskEventStatus};
+    app.emit_to(
+        "widget",
+        "task-companion-event",
+        TaskCompanionEvent {
+            schema_version: 1,
+            event_id: format!("simulator-{}", chrono::Utc::now().timestamp_millis()),
+            thread_id: "tokenhalo-simulator".into(),
+            turn_id: Some("test-notification".into()),
+            status: TaskEventStatus::Completed,
+            occurred_at: chrono::Utc::now().to_rfc3339(),
+            project_name: Some("TokenHalo".into()),
+            task_title: Some("Test notification".into()),
+            duration_ms: Some(12_000),
+            source: "simulator".into(),
+        },
+    )
+    .map_err(|_| "failed to send test notification".to_string())
+}
+
+#[tauri::command]
+fn open_codex_task(_thread_id: String) -> &'static str {
+    use std::process::Command;
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut command = Command::new("open");
+        command.arg("codex://");
+        command
+    };
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut command = Command::new("cmd");
+        command.args(["/C", "start", "", "codex://"]);
+        command
+    };
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    let mut command = {
+        let mut command = Command::new("xdg-open");
+        command.arg("codex://");
+        command
+    };
+    match command.status() {
+        Ok(status) if status.success() => "openedApp",
+        _ => "unavailable",
+    }
 }
 
 fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
@@ -695,9 +811,15 @@ pub fn run() {
                 .join(".codex")
                 .join("sessions");
             let token_stats = token_stats::TokenStatsService::new(
-                sessions_root,
+                sessions_root.clone(),
                 data_dir.join("token-stats-index.json"),
             );
+            let task_inbox_path = data_dir.join("task-companion").join("inbox");
+            let task_health_path = data_dir.join("task-companion").join("last-seen");
+            let codex_hooks_path = dirs::home_dir()
+                .unwrap_or_else(|| data_dir.clone())
+                .join(".codex")
+                .join("hooks.json");
             let preferences = load_preferences(&preferences_path);
             #[cfg(target_os = "macos")]
             apply_glass(app.handle(), &preferences);
@@ -715,7 +837,16 @@ pub fn run() {
                 fetch_lock: tokio::sync::Mutex::new(()),
                 snapshot_cache: Mutex::new(None),
                 token_stats,
+                task_inbox_path: task_inbox_path.clone(),
+                task_health_path: task_health_path.clone(),
+                codex_hooks_path,
             });
+            task_companion::start_watcher(
+                app.handle().clone(),
+                task_inbox_path,
+                task_health_path,
+                sessions_root,
+            );
             if setup_tray(app).is_err() {
                 eprintln!("tray setup failed; enabling taskbar fallback");
                 if let Some(window) = app.get_webview_window("widget") {
@@ -725,9 +856,7 @@ pub fn run() {
             if preferences.locked {
                 let _ = apply_lock(app.handle(), true);
             }
-            if let Some(window) = app.get_webview_window("widget") {
-                let _ = window.set_always_on_top(preferences.always_on_top);
-            }
+            let _ = apply_always_on_top(app.handle(), preferences.always_on_top, None);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -740,7 +869,13 @@ pub fn run() {
             set_widget_always_on_top,
             set_native_glass_mode,
             check_for_updates,
-            open_release_page
+            open_release_page,
+            get_codex_foreground,
+            get_task_companion_connection,
+            connect_task_companion,
+            disconnect_task_companion,
+            emit_test_task_companion_event,
+            open_codex_task
         ])
         .on_tray_icon_event(|app, event| {
             if let TrayIconEvent::Click {

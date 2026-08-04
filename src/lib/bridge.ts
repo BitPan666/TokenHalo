@@ -1,4 +1,4 @@
-import type { ProviderSnapshot, WidgetPreferences } from "../types";
+import type { ProviderSnapshot, TaskCompanionConnectionStatus, WidgetPreferences } from "../types";
 import type { TaskCompanionEvent } from "./taskCompanion";
 import type { TaskOpenResult } from "./useTaskCompanion";
 import packageInfo from "../../package.json";
@@ -265,8 +265,38 @@ export async function listenTaskCompanionEvents(
   return listen<TaskCompanionEvent>("task-companion-event", (event) => handler(event.payload));
 }
 
+export async function getCodexForeground(): Promise<boolean | null> {
+  if (!isTauri()) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean | null>("get_codex_foreground");
+}
+
 export async function openCodexTask(threadId: string): Promise<TaskOpenResult> {
   if (!isTauri()) return "unavailable";
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<TaskOpenResult>("open_codex_task", { threadId });
+}
+
+export async function getTaskCompanionConnection(): Promise<TaskCompanionConnectionStatus> {
+  if (!isTauri()) return { state: "disconnected" };
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<TaskCompanionConnectionStatus>("get_task_companion_connection");
+}
+
+export async function connectTaskCompanion(): Promise<TaskCompanionConnectionStatus> {
+  if (!isTauri()) return { state: "needsTrust" };
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<TaskCompanionConnectionStatus>("connect_task_companion");
+}
+
+export async function disconnectTaskCompanion(): Promise<TaskCompanionConnectionStatus> {
+  if (!isTauri()) return { state: "disconnected" };
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<TaskCompanionConnectionStatus>("disconnect_task_companion");
+}
+
+export async function testTaskCompanionNotification(): Promise<void> {
+  if (!isTauri()) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("emit_test_task_companion_event");
 }

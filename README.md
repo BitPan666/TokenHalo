@@ -25,6 +25,8 @@ Screenshots use simulated data. Installed desktop builds read the current user's
 - Lets macOS users adjust glass transparency, Clear/Regular style, and Weak/Medium/Strong effect strength.
 - Shows reset credit count and available reset-credit expiration times when the Codex usage service provides them.
 - Handles stale data, signed-out sessions, unavailable quota responses, and loading states without fabricating values.
+- Adds an opt-in Codex task companion with working, needs-input, completed, and failed states around the existing orb.
+- Shows a focus-safe 260×96 sidecar capsule above, left, right, or below the orb according to available screen space.
 
 ## Screenshots
 
@@ -64,6 +66,27 @@ The three statistics tabs use these definitions:
 
 The browser preview uses mock data. Real quota reading and local statistics require the Tauri desktop app.
 
+## Codex Task Companion
+
+The task companion is opt-in. Open **Settings and information → Codex companion**, choose **Connect to Codex**, then enter `/hooks` in Codex to review and trust the TokenHalo lifecycle hooks. The status changes from waiting for trust to connected after the next trusted lifecycle event is consumed. **Disconnect** removes only the handlers marked as owned by TokenHalo and preserves unrelated hook configuration.
+
+The compact orb adds a task-status ring while preserving its existing quota display:
+
+- **Working:** blue breathing ring; the start capsule closes after two seconds.
+- **Needs input:** amber ring and persistent capsule, with a ten-minute **Later** option.
+- **Completed:** green confirmation for seven seconds.
+- **Failed:** coral ring; the capsule closes after twelve seconds while the ring remains until acknowledged or superseded.
+
+The capsule is rendered in a separate non-activating window, so it does not move the orb or steal keyboard focus. It prefers the space above the orb, then adapts to the left, right, or bottom and clamps inside the current monitor work area. When Codex is foreground, ordinary working and completed capsules are suppressed; needs-input and failed attention remains visible. If foreground detection is unavailable, notifications remain visible.
+
+Task-specific deep links are not assumed. The current action opens the Codex application and reports that app-level fallback honestly. Ambiguous stops clear the task state without being labeled completed or failed.
+
+For deterministic UI review during development, run `npm run dev` and open:
+
+```text
+http://localhost:1420/?surface=task-designer
+```
+
 ## macOS Glass Support
 
 - macOS 26 and newer first attempt card-scoped native Liquid Glass.
@@ -98,8 +121,10 @@ TokenHalo is local-first and intentionally narrow:
 - Reads Token-count records from the current user's `~/.codex/sessions` for the local statistics page.
 - Sends the existing Codex access token only to ChatGPT quota endpoints.
 - Stores widget preferences and a local numeric statistics index in its own app config directory.
+- When the task companion is connected, stores only version, event ID, thread/turn ID, lifecycle status, timestamp, project-directory basename, duration, and source in its local inbox; consumed files are removed.
+- Stores a local last-seen timestamp to represent that a trusted lifecycle hook has executed.
 - Stores relative session identifiers, file fingerprints/cursors, numeric parser state, and aggregate totals in that index.
-- Does not store Codex tokens, account IDs, prompts, replies, code, raw session lines, raw quota responses, or absolute session-root paths.
+- Does not store Codex tokens, account IDs, prompts, replies, tool inputs or outputs, code, raw session lines, raw quota responses, or absolute session-root paths in task-companion records.
 - Does not upload raw session text or the local statistics index.
 - Does not include telemetry, analytics, crash reporting, or third-party tracking.
 - Does not redeem reset credits or modify account settings.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QuotaCard, QuotaOrb } from "./components/QuotaCard";
 import { TokenStatsCard } from "./components/TokenStatsCard";
-import { fetchSnapshots, getPreferences, listenDesktopEvents, setAlwaysOnTop, setWidgetMode, startDragging, updatePreferences } from "./lib/bridge";
+import { fetchSnapshots, getCodexForeground, getPreferences, listenDesktopEvents, setAlwaysOnTop, setWidgetMode, startDragging, updatePreferences } from "./lib/bridge";
 import { needsFastRefresh } from "./lib/format";
 import { copy, nextLanguage, normalizeLanguage } from "./lib/i18n";
 import { mergeSnapshots } from "./lib/snapshots";
@@ -64,6 +64,7 @@ export default function App() {
   const [preferenceMutationPending, setPreferenceMutationPending] = useState(false);
   const [quotaRefreshing, setQuotaRefreshing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [codexForeground, setCodexForeground] = useState(false);
   const failures = useRef(0);
   const preferencesRef = useRef(preferences);
   const preferencesReadyRef = useRef(false);
@@ -85,9 +86,28 @@ export default function App() {
   const taskCompanion = useTaskCompanion({
     compact: preferencesReady && compact,
     language,
-    codexForeground: false,
+    codexForeground,
   });
   preferencesRef.current = preferences;
+
+  useEffect(() => {
+    let disposed = false;
+    const refresh = () => {
+      void getCodexForeground()
+        .then((foreground) => {
+          if (!disposed) setCodexForeground(foreground === true);
+        })
+        .catch(() => {
+          if (!disposed) setCodexForeground(false);
+        });
+    };
+    refresh();
+    const interval = window.setInterval(refresh, 2_000);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const applyConfirmedPreferences = useCallback((next: WidgetPreferences) => {
     const viewChanged = confirmedViewRef.current !== next.expandedView;

@@ -18,14 +18,19 @@ import type {
 
 const mocks = vi.hoisted(() => ({
   checkForUpdates: vi.fn(),
+  connectTaskCompanion: vi.fn(),
+  disconnectTaskCompanion: vi.fn(),
   fetchSnapshots: vi.fn(),
+  getCodexForeground: vi.fn(),
   getPreferences: vi.fn(),
+  getTaskCompanionConnection: vi.fn(),
   listenDesktopEvents: vi.fn(),
   openReleasePage: vi.fn(),
   setAlwaysOnTop: vi.fn(),
   setWidgetMode: vi.fn(),
   startDragging: vi.fn(),
   updatePreferences: vi.fn(),
+  testTaskCompanionNotification: vi.fn(),
   useTokenStats: vi.fn(),
   useTaskCompanion: vi.fn(),
   statsRefresh: vi.fn(),
@@ -33,14 +38,19 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("./lib/bridge", () => ({
   checkForUpdates: mocks.checkForUpdates,
+  connectTaskCompanion: mocks.connectTaskCompanion,
+  disconnectTaskCompanion: mocks.disconnectTaskCompanion,
   fetchSnapshots: mocks.fetchSnapshots,
+  getCodexForeground: mocks.getCodexForeground,
   getPreferences: mocks.getPreferences,
+  getTaskCompanionConnection: mocks.getTaskCompanionConnection,
   listenDesktopEvents: mocks.listenDesktopEvents,
   openReleasePage: mocks.openReleasePage,
   setAlwaysOnTop: mocks.setAlwaysOnTop,
   setWidgetMode: mocks.setWidgetMode,
   startDragging: mocks.startDragging,
   updatePreferences: mocks.updatePreferences,
+  testTaskCompanionNotification: mocks.testTaskCompanionNotification,
 }));
 
 vi.mock("./lib/useTokenStats", () => ({
@@ -149,7 +159,12 @@ describe("App page switching", () => {
   beforeEach(() => {
     setWindowSide(320);
     mocks.fetchSnapshots.mockReset().mockResolvedValue([quotaSnapshot]);
+    mocks.connectTaskCompanion.mockReset().mockResolvedValue({ state: "needsTrust" });
+    mocks.disconnectTaskCompanion.mockReset().mockResolvedValue({ state: "disconnected" });
+    mocks.getCodexForeground.mockReset().mockResolvedValue(false);
     mocks.getPreferences.mockReset().mockResolvedValue(quotaPreferences);
+    mocks.getTaskCompanionConnection.mockReset().mockResolvedValue({ state: "disconnected" });
+    mocks.testTaskCompanionNotification.mockReset().mockResolvedValue(undefined);
     mocks.listenDesktopEvents.mockReset().mockImplementation(async ({
       onPreferences,
     }) => {
@@ -191,6 +206,16 @@ describe("App page switching", () => {
       .toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Codex 需要你的输入" }))
       .toBeInTheDocument();
+  });
+
+  it("passes native Codex foreground detection into notification policy", async () => {
+    mocks.getCodexForeground.mockResolvedValue(true);
+
+    render(<App />);
+
+    await waitFor(() => expect(mocks.useTaskCompanion).toHaveBeenLastCalledWith(
+      expect.objectContaining({ codexForeground: true }),
+    ));
   });
 
   afterEach(() => {

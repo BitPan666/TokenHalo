@@ -1,7 +1,7 @@
 # Codex Task Companion Design
 
 **Date:** 2026-08-04
-**Status:** Approved direction, pending written-spec review
+**Status:** Implemented baseline
 
 ## Purpose
 
@@ -247,12 +247,12 @@ tasks.
 
 Settings presents `Connect to Codex`. Enabling it:
 
-1. verifies a compatible Codex installation and the stable hooks capability;
-2. copies a versioned TokenHalo hook helper to an application-owned stable path;
+1. resolves the installed TokenHalo executable used by the hook command;
+2. verifies that the Codex hooks configuration can be parsed safely;
 3. backs up the affected Codex configuration;
 4. writes a uniquely marked, idempotent hook configuration atomically;
-5. runs a synthetic health event and reports connected only after TokenHalo
-   consumes it.
+5. reports connected only after a trusted lifecycle hook actually executes and
+   TokenHalo consumes its local health record.
 
 Disconnect removes only the uniquely marked TokenHalo entries and helper. It does
 not rewrite unrelated Codex settings. If the config changed externally, removal
@@ -261,7 +261,7 @@ be proven.
 
 ### Hook helper and event inbox
 
-The hook helper is asynchronous and must fail open: it exits successfully even
+The hook fast path is synchronous with a short timeout and must fail open: it exits successfully even
 when TokenHalo is absent or its inbox is unavailable, so it cannot block a Codex
 turn. It parses allowlisted lifecycle fields locally and discards all other hook
 payload fields without logging them.
@@ -272,9 +272,9 @@ or a long-lived socket so events survive application restarts and do not require
 firewall access. The helper performs no network calls.
 
 The Tauri companion service watches the inbox, validates schema and size, dedupes
-events, publishes `task-companion-event` to the frontend, and removes a file only
-after durable consumption. Malformed, oversized, or unsupported-version files are
-quarantined with a bounded count and no raw-content logging.
+events, publishes `task-companion-event` to the frontend, and removes each consumed
+file. Malformed, oversized, or unsupported-version files are discarded without
+raw-content logging.
 
 ### Session reconciliation
 
@@ -285,10 +285,10 @@ hook being used. The parser reads only event type, thread/turn identifiers, stat
 timestamps, working directory basename, and safe title metadata. It never persists
 raw records.
 
-Reconciliation runs at startup, after inbox watcher recovery, and on a low-frequency
-timer. A working state older than twelve hours without current lifecycle evidence
-expires silently to idle. Reconciliation never downgrades a newer explicit hook
-event with older session evidence.
+Reconciliation runs when a terminal candidate is consumed, including inbox replay
+after startup. It scans only bounded tails of matching session files and stops at a
+new-turn boundary. Ambiguous evidence clears to idle. The frontend's ordering rules
+prevent older evidence from downgrading a newer accepted event.
 
 ## Simulator and Test Notification
 
@@ -344,7 +344,7 @@ connection health.
 
 - hook configuration ownership, backup, atomic update, disconnect, and rollback;
 - allowlist parsing and rejection of malformed, oversized, or unsupported events;
-- atomic inbox delivery, restart recovery, quarantine cap, and deduplication;
+- atomic inbox delivery, bounded restart recovery, invalid-file cleanup, and deduplication;
 - metadata-only reconciliation and stale working-state expiry;
 - `task-toast` window contract: transparent, hidden initially, skip taskbar,
   nonactivating show, all-Spaces behavior on macOS, and preference-matched z-order;

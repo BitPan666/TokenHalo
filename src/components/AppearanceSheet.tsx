@@ -8,11 +8,15 @@ import {
 import packageInfo from "../../package.json";
 import {
   checkForUpdates,
+  connectTaskCompanion,
+  disconnectTaskCompanion,
+  getTaskCompanionConnection,
   openReleasePage,
+  testTaskCompanionNotification,
   type UpdateCheckResult,
 } from "../lib/bridge";
 import { copy, normalizeLanguage } from "../lib/i18n";
-import type { GlassStyle, WidgetPreferences } from "../types";
+import type { GlassStyle, TaskCompanionConnectionStatus, WidgetPreferences } from "../types";
 
 interface GlassValues {
   glassTransparency: number;
@@ -28,6 +32,10 @@ interface Props {
   disabled?: boolean;
   onCheckForUpdates?: () => Promise<UpdateCheckResult>;
   onOpenReleasePage?: (releaseUrl: string) => Promise<void>;
+  onGetTaskCompanionConnection?: () => Promise<TaskCompanionConnectionStatus>;
+  onConnectTaskCompanion?: () => Promise<TaskCompanionConnectionStatus>;
+  onDisconnectTaskCompanion?: () => Promise<TaskCompanionConnectionStatus>;
+  onTestTaskCompanion?: () => Promise<void>;
 }
 
 interface ActiveGesture {
@@ -77,11 +85,15 @@ export function AppearanceSheet({
   disabled = false,
   onCheckForUpdates = checkForUpdates,
   onOpenReleasePage = openReleasePage,
+  onGetTaskCompanionConnection = getTaskCompanionConnection,
+  onConnectTaskCompanion = connectTaskCompanion,
+  onDisconnectTaskCompanion = disconnectTaskCompanion,
+  onTestTaskCompanion = testTaskCompanionNotification,
 }: Props) {
   const language = normalizeLanguage(preferences.language);
   const t = copy[language];
   const [draft, setDraft] = useState(() => glassValues(preferences));
-  const [activeSection, setActiveSection] = useState<"appearance" | "about">(
+  const [activeSection, setActiveSection] = useState<"appearance" | "companion" | "about">(
     "appearance",
   );
   const [saving, setSaving] = useState(false);
@@ -90,6 +102,8 @@ export function AppearanceSheet({
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(
     null,
   );
+  const [taskConnection, setTaskConnection] = useState<TaskCompanionConnectionStatus | null>(null);
+  const [taskBusy, setTaskBusy] = useState(false);
   const preferencesRef = useRef(preferences);
   const savedRef = useRef(glassValues(preferences));
   const draftRef = useRef(draft);
@@ -246,6 +260,44 @@ export function AppearanceSheet({
   };
 
   const controlsDisabled = disabled || saving;
+  useEffect(() => {
+    if (activeSection !== "companion" || taskConnection) return;
+    void onGetTaskCompanionConnection()
+      .then(setTaskConnection)
+      .catch(() => setTaskConnection({ state: "degraded" }));
+  }, [activeSection, onGetTaskCompanionConnection, taskConnection]);
+  const taskStatusCopy = taskConnection?.state === "connected"
+    ? t.taskConnectionConnected
+    : taskConnection?.state === "needsTrust"
+      ? t.taskConnectionNeedsTrust
+      : taskConnection?.state === "degraded"
+        ? t.taskConnectionDegraded
+        : t.taskConnectionDisconnected;
+  const changeTaskConnection = async (
+    operation: () => Promise<TaskCompanionConnectionStatus>,
+  ) => {
+    if (taskBusy) return;
+    setTaskBusy(true);
+    try {
+      setTaskConnection(await operation());
+    } catch {
+      setTaskConnection({ state: "degraded" });
+    } finally {
+      setTaskBusy(false);
+    }
+  };
+
+  const sendTestNotification = async () => {
+    if (taskBusy) return;
+    setTaskBusy(true);
+    try {
+      await onTestTaskCompanion();
+    } catch {
+      // A failed preview does not change the hook connection state.
+    } finally {
+      setTaskBusy(false);
+    }
+  };
   const updateStatusCopy = updateStatus === "checking"
     ? t.appearanceUpdateChecking
     : updateStatus === "current"
@@ -393,6 +445,17 @@ export function AppearanceSheet({
         <button
           type="button"
           role="tab"
+          aria-selected={activeSection === "companion"}
+          aria-controls="appearance-companion-panel"
+          id="appearance-companion-tab"
+          disabled={controlsDisabled}
+          onClick={() => setActiveSection("companion")}
+        >
+          {t.appearanceCompanionTab}
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={activeSection === "about"}
           aria-controls="appearance-about-panel"
           id="appearance-about-tab"
@@ -504,6 +567,47 @@ export function AppearanceSheet({
           >
             {t.appearanceReset}
           </button>
+        </div>
+      ) : activeSection === "companion" ? (
+        <div
+          className="appearance-page appearance-page--companion"
+          id="appearance-companion-panel"
+          role="tabpanel"
+          aria-labelledby="appearance-companion-tab"
+        >
+          <div className="appearance-companion-card">
+            <strong>{t.taskConnectionTitle}</strong>
+            <p className="appearance-companion-status" role="status">
+              {taskStatusCopy}
+            </p>
+            <p>{t.taskConnectionNote}</p>
+            <div className="appearance-companion-actions">
+              {taskConnection?.state === "disconnected" || taskConnection === null ? (
+                <button
+                  type="button"
+                  disabled={controlsDisabled || taskBusy}
+                  onClick={() => void changeTaskConnection(onConnectTaskCompanion)}
+                >
+                  {t.taskConnect}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={controlsDisabled || taskBusy}
+                  onClick={() => void changeTaskConnection(onDisconnectTaskCompanion)}
+                >
+                  {t.taskDisconnect}
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={controlsDisabled || taskBusy}
+                onClick={() => void sendTestNotification()}
+              >
+                {t.taskSendTest}
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <div

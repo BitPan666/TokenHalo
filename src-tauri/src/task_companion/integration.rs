@@ -42,14 +42,22 @@ fn read_config(path: &Path) -> Result<Value, String> {
 }
 
 fn write_atomic(path: &Path, value: &Value) -> Result<(), String> {
-    let parent = path.parent().ok_or_else(|| "invalid hooks path".to_string())?;
-    fs::create_dir_all(parent).map_err(|_| "failed to create Codex config directory".to_string())?;
-    let bytes = serde_json::to_vec_pretty(value).map_err(|_| "failed to serialize Codex hooks".to_string())?;
-    serde_json::from_slice::<Value>(&bytes).map_err(|_| "generated Codex hooks are invalid".to_string())?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| "invalid hooks path".to_string())?;
+    fs::create_dir_all(parent)
+        .map_err(|_| "failed to create Codex config directory".to_string())?;
+    let bytes = serde_json::to_vec_pretty(value)
+        .map_err(|_| "failed to serialize Codex hooks".to_string())?;
+    serde_json::from_slice::<Value>(&bytes)
+        .map_err(|_| "generated Codex hooks are invalid".to_string())?;
     let temporary = path.with_extension("json.tmp");
     let backup = path.with_extension("json.tokenhalo.bak");
-    let mut file = fs::File::create(&temporary).map_err(|_| "failed to create temporary hooks file".to_string())?;
-    file.write_all(&bytes).and_then(|_| file.sync_all()).map_err(|_| "failed to write hooks file".to_string())?;
+    let mut file = fs::File::create(&temporary)
+        .map_err(|_| "failed to create temporary hooks file".to_string())?;
+    file.write_all(&bytes)
+        .and_then(|_| file.sync_all())
+        .map_err(|_| "failed to write hooks file".to_string())?;
     if path.exists() {
         fs::copy(path, &backup).map_err(|_| "failed to back up Codex hooks".to_string())?;
     }
@@ -63,16 +71,25 @@ pub fn install(path: &Path, executable: &Path, inbox: &Path) -> Result<(), Strin
         .ok_or_else(|| "Codex hooks root must be an object".to_string())?
         .entry("hooks")
         .or_insert_with(|| json!({}));
-    let hooks = hooks.as_object_mut().ok_or_else(|| "Codex hooks must be an object".to_string())?;
+    let hooks = hooks
+        .as_object_mut()
+        .ok_or_else(|| "Codex hooks must be an object".to_string())?;
     for event in EVENTS {
         let groups = hooks.entry(event).or_insert_with(|| json!([]));
-        let groups = groups.as_array_mut().ok_or_else(|| format!("Codex {event} hooks must be an array"))?;
+        let groups = groups
+            .as_array_mut()
+            .ok_or_else(|| format!("Codex {event} hooks must be an array"))?;
         for group in groups.iter_mut() {
             if let Some(handlers) = group.get_mut("hooks").and_then(Value::as_array_mut) {
                 handlers.retain(|handler| !is_owned(handler));
             }
         }
-        groups.retain(|group| group.get("hooks").and_then(Value::as_array).is_some_and(|items| !items.is_empty()));
+        groups.retain(|group| {
+            group
+                .get("hooks")
+                .and_then(Value::as_array)
+                .is_some_and(|items| !items.is_empty())
+        });
         groups.push(json!({"hooks": [owned_handler(event, executable, inbox)]}));
     }
     write_atomic(path, &config)
@@ -80,7 +97,10 @@ pub fn install(path: &Path, executable: &Path, inbox: &Path) -> Result<(), Strin
 
 pub fn uninstall(path: &Path) -> Result<(), String> {
     let mut config = read_config(path)?;
-    let hooks = config.get_mut("hooks").and_then(Value::as_object_mut).ok_or_else(|| "Codex hooks ownership cannot be proven".to_string())?;
+    let hooks = config
+        .get_mut("hooks")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| "Codex hooks ownership cannot be proven".to_string())?;
     let mut removed = 0;
     for event in EVENTS {
         if let Some(groups) = hooks.get_mut(event).and_then(Value::as_array_mut) {
@@ -91,13 +111,38 @@ pub fn uninstall(path: &Path) -> Result<(), String> {
                     removed += before - handlers.len();
                 }
             }
-            groups.retain(|group| group.get("hooks").and_then(Value::as_array).is_some_and(|items| !items.is_empty()));
+            groups.retain(|group| {
+                group
+                    .get("hooks")
+                    .and_then(Value::as_array)
+                    .is_some_and(|items| !items.is_empty())
+            });
         }
     }
     if removed == 0 {
         return Err("TokenHalo hook ownership cannot be proven".to_string());
     }
     write_atomic(path, &config)
+}
+
+pub fn is_installed(path: &Path) -> Result<bool, String> {
+    let config = read_config(path)?;
+    let Some(hooks) = config.get("hooks").and_then(Value::as_object) else {
+        return Ok(false);
+    };
+    Ok(EVENTS.iter().all(|event| {
+        hooks
+            .get(*event)
+            .and_then(Value::as_array)
+            .is_some_and(|groups| {
+                groups.iter().any(|group| {
+                    group
+                        .get("hooks")
+                        .and_then(Value::as_array)
+                        .is_some_and(|handlers| handlers.iter().any(is_owned))
+                })
+            })
+    }))
 }
 
 #[cfg(test)]
@@ -109,8 +154,18 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("hooks.json");
         fs::write(&path, r#"{"custom":true,"hooks":{"Stop":[{"hooks":[{"type":"command","command":"other"}]}]}}"#).unwrap();
-        install(&path, Path::new("/Applications/Token Halo"), Path::new("/tmp/task inbox")).unwrap();
-        install(&path, Path::new("/Applications/Token Halo"), Path::new("/tmp/task inbox")).unwrap();
+        install(
+            &path,
+            Path::new("/Applications/Token Halo"),
+            Path::new("/tmp/task inbox"),
+        )
+        .unwrap();
+        install(
+            &path,
+            Path::new("/Applications/Token Halo"),
+            Path::new("/tmp/task inbox"),
+        )
+        .unwrap();
         let value: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
         assert_eq!(value["custom"], true);
         let stop = value["hooks"]["Stop"].as_array().unwrap();

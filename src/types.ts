@@ -1,6 +1,11 @@
 export type ProviderId = "codex" | "claude";
 export type SnapshotStatus = "ok" | "stale" | "loading" | "unavailable" | "signed_out";
 export type Language = "zh-CN" | "en";
+
+export type TaskCompanionConnectionState = "disconnected" | "needsTrust" | "connected" | "degraded";
+export interface TaskCompanionConnectionStatus {
+  state: TaskCompanionConnectionState;
+}
 export type ExpandedView = "quota" | "tokenStats";
 export type GlassStyle = "clear" | "regular";
 export type StatsGranularity = "day" | "week" | "month";

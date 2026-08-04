@@ -37,6 +37,31 @@ afterEach(() => {
 });
 
 describe("AppearanceSheet", () => {
+  it("connects the Codex companion with honest trust status and a test action", async () => {
+    const onConnectTaskCompanion = vi.fn().mockResolvedValue({ state: "needsTrust" });
+    const onTestTaskCompanion = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AppearanceSheet
+        preferences={preferences}
+        onPreview={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onClose={vi.fn()}
+        onGetTaskCompanionConnection={vi.fn().mockResolvedValue({ state: "disconnected" })}
+        onConnectTaskCompanion={onConnectTaskCompanion}
+        onTestTaskCompanion={onTestTaskCompanion}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Codex 伴侣" }));
+    expect(await screen.findByText("尚未连接")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "连接 Codex" }));
+    expect(await screen.findByText("等待在 Codex 中信任 Hook"))
+      .toBeInTheDocument();
+    expect(screen.getByText(/\/hooks/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "发送测试通知" }));
+    await waitFor(() => expect(onTestTaskCompanion).toHaveBeenCalledOnce());
+  });
+
   it("switches from appearance controls to local data and version information", () => {
     render(
       <AppearanceSheet

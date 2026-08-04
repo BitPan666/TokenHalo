@@ -79,10 +79,10 @@ pub(crate) fn write_record(directory: &Path, record: &HookRecord) -> Result<Path
     fs::create_dir_all(directory).map_err(|_| "failed to create task inbox".to_string())?;
     let final_path = directory.join(format!("{}.json", record.event_id));
     let temporary_path = directory.join(format!("{}.tmp", record.event_id));
-    let serialized = serde_json::to_vec(record)
-        .map_err(|_| "failed to serialize task event".to_string())?;
-    let mut file = fs::File::create(&temporary_path)
-        .map_err(|_| "failed to create task event".to_string())?;
+    let serialized =
+        serde_json::to_vec(record).map_err(|_| "failed to serialize task event".to_string())?;
+    let mut file =
+        fs::File::create(&temporary_path).map_err(|_| "failed to create task event".to_string())?;
     file.write_all(&serialized)
         .and_then(|_| file.sync_all())
         .map_err(|_| "failed to write task event".to_string())?;
@@ -113,14 +113,17 @@ pub fn run_from_process_args() -> Option<Result<(), String>> {
     {
         return Some(Err(format!("failed to read hook input: {error}")));
     }
-    let result = record_from_input(event_name, &raw, &chrono::Utc::now().to_rfc3339())
-        .and_then(|record| write_record(&inbox, &record).map(|_| ()))
-        .map(|_| {
-            if event_name == "Stop" {
-                println!("{{}}");
-            }
-        });
-    Some(result)
+    let occurred_at = chrono::Utc::now().to_rfc3339();
+    let _ = record_from_input(event_name, &raw, &occurred_at).and_then(|record| {
+        write_record(&inbox, &record)?;
+        let health = record_from_input("Health", &raw, &occurred_at)?;
+        write_record(&inbox, &health)?;
+        Ok(())
+    });
+    if event_name == "Stop" {
+        println!("{{}}");
+    }
+    Some(Ok(()))
 }
 
 #[cfg(test)]
@@ -147,7 +150,13 @@ mod tests {
         assert_eq!(record.thread_id, "thread-one");
         assert_eq!(record.turn_id.as_deref(), Some("turn-one"));
         assert_eq!(record.project_name.as_deref(), Some("TokenHalo"));
-        for forbidden in ["secret prompt", "/Users/private", "prompt", "cwd", "transcript_path"] {
+        for forbidden in [
+            "secret prompt",
+            "/Users/private",
+            "prompt",
+            "cwd",
+            "transcript_path",
+        ] {
             assert!(!serialized.contains(forbidden));
         }
     }
@@ -169,7 +178,9 @@ mod tests {
 
         assert_eq!(permission.status, HookSignal::NeedsInput);
         assert_eq!(stop.status, HookSignal::TerminalCandidate);
-        assert!(!serde_json::to_string(&permission).unwrap().contains("command"));
+        assert!(!serde_json::to_string(&permission)
+            .unwrap()
+            .contains("command"));
         assert!(!serde_json::to_string(&stop).unwrap().contains("assistant"));
     }
 

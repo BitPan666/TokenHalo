@@ -482,6 +482,19 @@ button { font: inherit; }
 .task-playground-controls button { margin: 0 6px 6px 0; padding: 7px 10px; border: 1px solid rgb(255 255 255 / .12); border-radius: 9px; color: #b8c6d9; background: #182231; cursor: pointer; }
 .task-playground-controls button.is-active { color: #fff; border-color: #558fe0; background: #285990; }
 
+.appearance-companion-card {
+  padding: 14px;
+  border: 1px solid rgb(255 255 255 / .38);
+  border-radius: 16px;
+  background: rgb(255 255 255 / .2);
+}
+.appearance-companion-card > strong { color: #1b3049; font-size: 11px; }
+.appearance-companion-card p { margin: 7px 0 0; color: #596b80; font-size: 9px; line-height: 1.5; }
+.appearance-companion-card .appearance-companion-status { color: #274c78; font-size: 10px; font-weight: 720; }
+.appearance-companion-actions { display: flex; gap: 7px; margin-top: 12px; }
+.appearance-companion-actions button { min-height: 28px; padding: 0 11px; border: 1px solid rgb(41 79 119 / .18); border-radius: 999px; color: #244c77; background: rgb(255 255 255 / .48); font-size: 9px; font-weight: 680; cursor: pointer; }
+.appearance-companion-actions button:disabled { opacity: .5; cursor: default; }
+
 .expanded-card-surface {
   --glass-alpha: .6;
   --glass-texture-angle: 135deg;
@@ -965,7 +978,7 @@ button { font: inherit; }
 .appearance-tabs {
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 3px;
   padding: 3px;
   border: 1px solid rgb(255 255 255 / .5);

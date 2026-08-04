@@ -20,28 +20,38 @@ import type {
 
 const mocks = vi.hoisted(() => ({
   checkForUpdates: vi.fn(),
+  connectTaskCompanion: vi.fn(),
+  disconnectTaskCompanion: vi.fn(),
   fetchSnapshots: vi.fn(),
+  getCodexForeground: vi.fn(),
   getPreferences: vi.fn(),
+  getTaskCompanionConnection: vi.fn(),
   listenDesktopEvents: vi.fn(),
   openReleasePage: vi.fn(),
   setAlwaysOnTop: vi.fn(),
   setWidgetMode: vi.fn(),
   startDragging: vi.fn(),
   updatePreferences: vi.fn(),
+  testTaskCompanionNotification: vi.fn(),
   fetchTokenStats: vi.fn(),
   useTaskCompanion: vi.fn(),
 }));
 
 vi.mock("./lib/bridge", () => ({
   checkForUpdates: mocks.checkForUpdates,
+  connectTaskCompanion: mocks.connectTaskCompanion,
+  disconnectTaskCompanion: mocks.disconnectTaskCompanion,
   fetchSnapshots: mocks.fetchSnapshots,
+  getCodexForeground: mocks.getCodexForeground,
   getPreferences: mocks.getPreferences,
+  getTaskCompanionConnection: mocks.getTaskCompanionConnection,
   listenDesktopEvents: mocks.listenDesktopEvents,
   openReleasePage: mocks.openReleasePage,
   setAlwaysOnTop: mocks.setAlwaysOnTop,
   setWidgetMode: mocks.setWidgetMode,
   startDragging: mocks.startDragging,
   updatePreferences: mocks.updatePreferences,
+  testTaskCompanionNotification: mocks.testTaskCompanionNotification,
 }));
 
 vi.mock("./lib/tokenStats", () => ({
@@ -130,7 +140,12 @@ describe("App statistics integration", () => {
       value: 400,
     });
     mocks.fetchSnapshots.mockReset().mockResolvedValue([quotaSnapshot]);
+    mocks.connectTaskCompanion.mockReset().mockResolvedValue({ state: "needsTrust" });
+    mocks.disconnectTaskCompanion.mockReset().mockResolvedValue({ state: "disconnected" });
+    mocks.getCodexForeground.mockReset().mockResolvedValue(false);
     mocks.getPreferences.mockReset().mockResolvedValue(preferences);
+    mocks.getTaskCompanionConnection.mockReset().mockResolvedValue({ state: "disconnected" });
+    mocks.testTaskCompanionNotification.mockReset().mockResolvedValue(undefined);
     mocks.listenDesktopEvents.mockReset().mockResolvedValue(() => undefined);
     mocks.setAlwaysOnTop.mockReset();
     mocks.setWidgetMode.mockReset().mockResolvedValue(undefined);

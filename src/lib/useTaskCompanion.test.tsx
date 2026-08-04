@@ -117,4 +117,30 @@ describe("useTaskCompanion", () => {
 
     rerender({ foreground: false });
   });
+
+  it("keeps lifecycle ordering across attention, completion, failure, and interruption", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(BASE_TIME);
+    const fake = fakeBridge();
+    const { result } = renderHook(() => useTaskCompanion({
+      compact: true,
+      language: "en",
+      codexForeground: false,
+      bridge: fake.bridge,
+    }));
+    await act(async () => undefined);
+
+    act(() => fake.emit(event("working", 0)));
+    expect(result.current.taskStatus?.status).toBe("working");
+    act(() => fake.emit(event("needsInput", 1)));
+    expect(result.current.taskStatus?.status).toBe("needsInput");
+    act(() => fake.emit(event("working", 2)));
+    expect(result.current.taskStatus?.status).toBe("working");
+    act(() => fake.emit(event("completed", 3)));
+    expect(result.current.taskStatus?.status).toBe("completed");
+    act(() => fake.emit(event("failed", 4)));
+    expect(result.current.taskStatus?.status).toBe("failed");
+    act(() => fake.emit(event("interrupted", 5)));
+    expect(result.current.taskStatus).toBeNull();
+  });
 });
