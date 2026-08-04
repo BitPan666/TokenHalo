@@ -7,7 +7,7 @@ mod macos_glass;
 mod macos_overlay;
 mod models;
 mod token_stats;
-mod task_companion;
+pub mod task_companion;
 mod updates;
 
 pub fn run_task_hook_if_requested() -> Option<Result<(), String>> {
