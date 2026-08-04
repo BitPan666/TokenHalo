@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
   startDragging: vi.fn(),
   updatePreferences: vi.fn(),
   fetchTokenStats: vi.fn(),
+  useTaskCompanion: vi.fn(),
 }));
 
 vi.mock("./lib/bridge", () => ({
@@ -45,6 +46,10 @@ vi.mock("./lib/bridge", () => ({
 
 vi.mock("./lib/tokenStats", () => ({
   fetchTokenStats: mocks.fetchTokenStats,
+}));
+
+vi.mock("./lib/useTaskCompanion", () => ({
+  useTaskCompanion: mocks.useTaskCompanion,
 }));
 
 import App from "./App";
@@ -132,6 +137,11 @@ describe("App statistics integration", () => {
     mocks.startDragging.mockReset();
     mocks.updatePreferences.mockReset().mockResolvedValue(undefined);
     mocks.fetchTokenStats.mockReset();
+    mocks.useTaskCompanion.mockReset().mockReturnValue({
+      taskStatus: null,
+      activeEntry: null,
+      ingest: vi.fn(),
+    });
   });
 
   afterEach(() => {

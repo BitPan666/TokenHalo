@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   startDragging: vi.fn(),
   updatePreferences: vi.fn(),
   useTokenStats: vi.fn(),
+  useTaskCompanion: vi.fn(),
   statsRefresh: vi.fn(),
 }));
 
@@ -44,6 +45,10 @@ vi.mock("./lib/bridge", () => ({
 
 vi.mock("./lib/useTokenStats", () => ({
   useTokenStats: mocks.useTokenStats,
+}));
+
+vi.mock("./lib/useTaskCompanion", () => ({
+  useTaskCompanion: mocks.useTaskCompanion,
 }));
 
 import App from "./App";
@@ -165,6 +170,27 @@ describe("App page switching", () => {
       error: null,
       refresh: mocks.statsRefresh,
     }));
+    mocks.useTaskCompanion.mockReset().mockReturnValue({
+      taskStatus: null,
+      activeEntry: null,
+      ingest: vi.fn(),
+    });
+  });
+
+  it("passes task status into the compact orb without replacing quota", async () => {
+    setWindowSide(100);
+    mocks.useTaskCompanion.mockReturnValue({
+      taskStatus: { status: "needsInput", attentionCount: 3 },
+      activeEntry: null,
+      ingest: vi.fn(),
+    });
+
+    render(<App />);
+
+    expect(await screen.findByLabelText("5 小时额度剩余 74%"))
+      .toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Codex 需要你的输入" }))
+      .toBeInTheDocument();
   });
 
   afterEach(() => {

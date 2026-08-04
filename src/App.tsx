@@ -6,6 +6,7 @@ import { needsFastRefresh } from "./lib/format";
 import { copy, nextLanguage, normalizeLanguage } from "./lib/i18n";
 import { mergeSnapshots } from "./lib/snapshots";
 import { useTokenStats } from "./lib/useTokenStats";
+import { useTaskCompanion } from "./lib/useTaskCompanion";
 import type {
   ExpandedView,
   ProviderSnapshot,
@@ -81,6 +82,11 @@ export default function App() {
   const t = copy[language];
   const statsActive = preferencesReady && !compact && preferences.expandedView === "tokenStats";
   const tokenStats = useTokenStats(statsActive, statsGranularity);
+  const taskCompanion = useTaskCompanion({
+    compact: preferencesReady && compact,
+    language,
+    codexForeground: false,
+  });
   preferencesRef.current = preferences;
 
   const applyConfirmedPreferences = useCallback((next: WidgetPreferences) => {
@@ -575,7 +581,7 @@ export default function App() {
   if (!current) return <div className="loading-card" aria-label={t.loadingQuota}><span /><span /><span /></div>;
 
   if (!preferencesReady || compact) {
-    return <QuotaOrb snapshot={current} language={language} onDrag={() => startDragging()} onHover={handleHover} />;
+    return <QuotaOrb snapshot={current} language={language} onDrag={() => startDragging()} onHover={handleHover} taskStatus={taskCompanion.taskStatus} />;
   }
 
   if (preferences.expandedView === "tokenStats") {

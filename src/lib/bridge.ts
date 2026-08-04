@@ -1,4 +1,6 @@
 import type { ProviderSnapshot, WidgetPreferences } from "../types";
+import type { TaskCompanionEvent } from "./taskCompanion";
+import type { TaskOpenResult } from "./useTaskCompanion";
 import packageInfo from "../../package.json";
 import {
   createWidgetWindowController,
@@ -253,4 +255,18 @@ export async function listenTaskToastActions(
   if (!isTauri()) return () => undefined;
   const { listen } = await import("@tauri-apps/api/event");
   return listen<TaskToastActionPayload>("task-toast-action", (event) => handler(event.payload));
+}
+
+export async function listenTaskCompanionEvents(
+  handler: (payload: TaskCompanionEvent) => void,
+): Promise<() => void> {
+  if (!isTauri()) return () => undefined;
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<TaskCompanionEvent>("task-companion-event", (event) => handler(event.payload));
+}
+
+export async function openCodexTask(threadId: string): Promise<TaskOpenResult> {
+  if (!isTauri()) return "unavailable";
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<TaskOpenResult>("open_codex_task", { threadId });
 }
