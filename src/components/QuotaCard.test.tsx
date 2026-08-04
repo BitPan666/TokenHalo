@@ -446,4 +446,21 @@ describe("QuotaCard", () => {
       vi.useRealTimers();
     }
   });
+
+  it("adds the task ring and attention badge without replacing quota content", () => {
+    const { container } = render(
+      <QuotaOrb
+        snapshot={snapshot}
+        language="zh-CN"
+        onDrag={vi.fn()}
+        onHover={vi.fn()}
+        taskStatus={{ status: "needsInput", attentionCount: 3 }}
+      />,
+    );
+
+    expect(container.querySelector(".orb-metric")).toHaveTextContent("73%");
+    expect(screen.getByRole("status", { name: "Codex 需要你的输入" }))
+      .toHaveClass("task-status-ring--needsInput");
+    expect(screen.getByText("3")).toHaveAttribute("aria-label", "3 个任务需要处理");
+  });
 });

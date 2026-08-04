@@ -10,10 +10,12 @@ import {
 import { clampPercent, formatDateTime, formatResetDate, formatResetTime, quotaTier } from "../lib/format";
 import { copy, normalizeLanguage } from "../lib/i18n";
 import { classifyUsagePeriod } from "../lib/usagePeriod";
+import type { TaskCompanionStatus } from "../lib/taskCompanion";
 import type { Language, ProviderSnapshot, WidgetPreferences } from "../types";
 import { AppearanceSheet } from "./AppearanceSheet";
 import { CardChrome } from "./CardChrome";
 import { ProviderMark } from "./ProviderMark";
+import { TaskStatusRing } from "./TaskStatusRing";
 
 interface Props {
   snapshot: ProviderSnapshot;
@@ -222,7 +224,21 @@ export const QuotaCard = memo(function QuotaCard({
   );
 });
 
-export const QuotaOrb = memo(function QuotaOrb({ snapshot, onDrag, onHover, language = "zh-CN" }: Pick<Props, "snapshot" | "onDrag" | "onHover"> & { language?: Language }) {
+interface QuotaOrbProps extends Pick<Props, "snapshot" | "onDrag" | "onHover"> {
+  language?: Language;
+  taskStatus?: {
+    status: TaskCompanionStatus;
+    attentionCount: number;
+  } | null;
+}
+
+export const QuotaOrb = memo(function QuotaOrb({
+  snapshot,
+  onDrag,
+  onHover,
+  language = "zh-CN",
+  taskStatus = null,
+}: QuotaOrbProps) {
   const activeLanguage = normalizeLanguage(language);
   const t = copy[activeLanguage];
   const primary = snapshot.shortWindow ? clampPercent(snapshot.shortWindow.remainingPercent) : null;
@@ -246,6 +262,13 @@ export const QuotaOrb = memo(function QuotaOrb({ snapshot, onDrag, onHover, lang
       aria-label={available ? t.usageAvailableLabel(primaryPeriod, primary) : localizedBackendMessage(snapshot.message, activeLanguage) ?? t.unavailableStatus}
     >
       <div className="aurora" aria-hidden="true" />
+      {taskStatus ? (
+        <TaskStatusRing
+          status={taskStatus.status}
+          attentionCount={taskStatus.attentionCount}
+          language={activeLanguage}
+        />
+      ) : null}
       {available ? (
         <section className="orb-metric">
           <span>{primary}</span>

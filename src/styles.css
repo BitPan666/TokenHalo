@@ -261,6 +261,227 @@ button { font: inherit; }
 .quota-card--stale .orb-unavailable { color: #8f9094; }
 .quota-card--signed_out .orb-unavailable { color: #5f6f95; }
 
+.task-status-ring {
+  --task-accent: #5d9dff;
+  position: absolute;
+  z-index: 3;
+  inset: 3px;
+  border: 2px solid var(--task-accent);
+  border-radius: 25px;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / .45),
+    0 0 10px color-mix(in srgb, var(--task-accent) 62%, transparent);
+  pointer-events: none;
+}
+
+.task-status-ring--working {
+  --task-accent: #5d9dff;
+  animation: task-ring-breathe 2.4s ease-in-out infinite;
+}
+
+.task-status-ring--needsInput { --task-accent: #f0ae3f; }
+.task-status-ring--completed { --task-accent: #56c987; }
+.task-status-ring--failed { --task-accent: #ef735f; }
+
+.task-status-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border: 1px solid rgb(255 255 255 / .76);
+  border-radius: 999px;
+  color: #fff;
+  background: #24364d;
+  box-shadow: 0 3px 8px rgb(29 44 65 / .24);
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+@keyframes task-ring-breathe {
+  50% {
+    opacity: .64;
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / .36),
+      0 0 16px color-mix(in srgb, var(--task-accent) 76%, transparent);
+  }
+}
+
+.task-toast {
+  --task-accent: #5d9dff;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  overflow: visible;
+  padding: 13px 14px;
+  border: 1px solid rgb(255 255 255 / .66);
+  border-radius: 22px;
+  color: #172231;
+  background:
+    linear-gradient(145deg, rgb(246 251 255 / .94), rgb(218 235 248 / .88));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .72),
+    0 12px 34px rgb(38 58 84 / .2),
+    0 0 18px color-mix(in srgb, var(--task-accent) 18%, transparent);
+  backdrop-filter: blur(20px) saturate(1.16);
+  -webkit-backdrop-filter: blur(20px) saturate(1.16);
+  animation: task-toast-enter .18s cubic-bezier(.2, .8, .2, 1) both;
+  user-select: none;
+}
+
+.task-toast--needsInput { --task-accent: #f0ae3f; }
+.task-toast--completed { --task-accent: #56c987; }
+.task-toast--failed { --task-accent: #ef735f; }
+.task-toast--top { --task-enter-x: 0; --task-enter-y: 7px; }
+.task-toast--left { --task-enter-x: 7px; --task-enter-y: 0; }
+.task-toast--right { --task-enter-x: -7px; --task-enter-y: 0; }
+.task-toast--bottom { --task-enter-x: 0; --task-enter-y: -7px; }
+
+@keyframes task-toast-enter {
+  from { opacity: 0; transform: translate(var(--task-enter-x), var(--task-enter-y)) scale(.98); }
+  to { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
+.task-toast-connector {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: inherit;
+  background: rgb(229 241 250 / .94);
+  transform: rotate(45deg);
+}
+
+.task-toast--top .task-toast-connector {
+  left: calc(50% - 5px);
+  bottom: -6px;
+  border-top: 0;
+  border-left: 0;
+}
+
+.task-toast--bottom .task-toast-connector {
+  left: calc(50% - 5px);
+  top: -6px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.task-toast--left .task-toast-connector {
+  top: calc(50% - 5px);
+  right: -6px;
+  border-bottom: 0;
+  border-left: 0;
+}
+
+.task-toast--right .task-toast-connector {
+  top: calc(50% - 5px);
+  left: -6px;
+  border-top: 0;
+  border-right: 0;
+}
+
+.task-toast-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--task-accent);
+  box-shadow: 0 0 9px color-mix(in srgb, var(--task-accent) 62%, transparent);
+}
+
+.task-toast-copy { min-width: 0; }
+.task-toast-copy strong,
+.task-toast-copy p,
+.task-toast-copy small { display: block; margin: 0; }
+.task-toast-copy strong { font-size: 11px; font-weight: 760; line-height: 1.2; }
+.task-toast-copy p { margin-top: 4px; overflow: hidden; color: #42566f; font-size: 10px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
+.task-toast-copy small { margin-top: 3px; color: #708095; font-size: 8px; font-variant-numeric: tabular-nums; }
+
+.task-toast-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.task-toast-actions button {
+  min-width: 60px;
+  height: 25px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.task-toast-primary {
+  border: 1px solid color-mix(in srgb, var(--task-accent) 48%, #35506c);
+  color: #fff;
+  background: color-mix(in srgb, var(--task-accent) 72%, #35506c);
+}
+
+.task-toast-secondary {
+  border: 1px solid rgb(72 95 120 / .18);
+  color: #40556e;
+  background: rgb(255 255 255 / .42);
+}
+
+.task-toast-actions button:focus-visible {
+  outline: 2px solid #173b66;
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-status-ring--working { animation: none; }
+  .task-toast { animation-duration: .1s; animation-name: task-toast-fade; }
+}
+
+@keyframes task-toast-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.task-playground {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(540px, 1fr) 320px;
+  color: #e9f2ff;
+  background: #0c1119;
+}
+
+.task-playground-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 48%, rgb(60 91 132 / .28), transparent 34%),
+    linear-gradient(135deg, #111a26, #090d13);
+}
+
+.task-playground-orb { width: 100px; height: 100px; }
+.task-playground-toast { position: absolute; width: 260px; height: 96px; transform: translateY(-132px); }
+
+.task-playground-controls {
+  padding: 34px 28px;
+  border-left: 1px solid rgb(255 255 255 / .08);
+  background: #111722;
+}
+
+.task-playground-controls > p { margin: 0; color: #77aef8; font-size: 10px; font-weight: 760; letter-spacing: .12em; }
+.task-playground-controls h1 { margin: 8px 0 28px; font-size: 24px; }
+.task-playground-controls fieldset { margin: 0 0 20px; padding: 0; border: 0; }
+.task-playground-controls legend { margin-bottom: 9px; color: #8e9db1; font-size: 11px; }
+.task-playground-controls button { margin: 0 6px 6px 0; padding: 7px 10px; border: 1px solid rgb(255 255 255 / .12); border-radius: 9px; color: #b8c6d9; background: #182231; cursor: pointer; }
+.task-playground-controls button.is-active { color: #fff; border-color: #558fe0; background: #285990; }
+
 .expanded-card-surface {
   --glass-alpha: .6;
   --glass-texture-angle: 135deg;

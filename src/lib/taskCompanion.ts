@@ -16,7 +16,7 @@ export interface TaskCompanionEvent {
 }
 
 export interface TaskCompanionEntry {
-  event: TaskCompanionEvent;
+  event: TaskCompanionEvent & { status: TaskCompanionStatus };
   acknowledged: boolean;
   postponedUntil: number | null;
   toastExpired: boolean;
@@ -113,7 +113,7 @@ export function taskCompanionReducer(
     }
 
     entries[incoming.threadId] = {
-      event: incoming,
+      event: { ...incoming, status: incoming.status },
       acknowledged: false,
       postponedUntil: null,
       toastExpired: false,
@@ -183,4 +183,21 @@ export function selectTaskCompanionDisplay(
     .sort(newestFirst)[0] ?? null;
 
   return { selected, ring, unresolvedCount };
+}
+
+export function taskCompanionLabel(event: TaskCompanionEvent) {
+  return event.projectName?.trim()
+    || event.taskTitle?.trim()
+    || "Codex task";
+}
+
+export function formatTaskDuration(durationMs: number | null) {
+  if (durationMs === null || !Number.isFinite(durationMs) || durationMs < 0) return null;
+  const totalSeconds = Math.floor(durationMs / 1_000);
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
 }

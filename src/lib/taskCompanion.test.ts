@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   createTaskCompanionState,
+  formatTaskDuration,
   selectTaskCompanionDisplay,
+  taskCompanionLabel,
   taskCompanionReducer,
   taskToastDurationMs,
   type TaskCompanionEvent,
@@ -178,5 +180,16 @@ describe("taskCompanionReducer", () => {
     expect(taskToastDurationMs("needsInput")).toBeNull();
     expect(taskToastDurationMs("completed")).toBe(7_000);
     expect(taskToastDurationMs("failed")).toBe(12_000);
+  });
+
+  it("uses safe task labels and compact durations", () => {
+    expect(taskCompanionLabel(event("alpha", "working", 1))).toBe("Project alpha");
+    expect(taskCompanionLabel(event("alpha", "working", 1, { projectName: "", taskTitle: "Refactor" })))
+      .toBe("Refactor");
+    expect(taskCompanionLabel(event("alpha", "working", 1, { projectName: null, taskTitle: null })))
+      .toBe("Codex task");
+    expect(formatTaskDuration(null)).toBeNull();
+    expect(formatTaskDuration(65_000)).toBe("1m 5s");
+    expect(formatTaskDuration(3_661_000)).toBe("1h 1m");
   });
 });
