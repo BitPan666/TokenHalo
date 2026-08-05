@@ -86,6 +86,11 @@ pub fn configure(app: &mut tauri::App) -> tauri::Result<()> {
         panel.set_collection_behavior(policy.collection_behavior.into());
         panel.set_hides_on_deactivate(policy.hides_on_deactivate);
         panel.set_floating_panel(true);
+        if label == "widget" {
+            panel.show();
+        } else {
+            panel.hide();
+        }
     }
 
     Ok(())

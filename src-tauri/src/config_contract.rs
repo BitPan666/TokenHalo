@@ -166,3 +166,16 @@ fn native_glass_clips_its_rounded_layer_to_bounds() {
         "native glass must clip its material to the rounded card bounds"
     );
 }
+
+#[cfg(target_os = "macos")]
+#[test]
+fn converted_widget_panel_is_explicitly_shown_but_toast_stays_hidden() {
+    let source = include_str!("macos_overlay.rs");
+
+    assert!(
+        source.contains("if label == \"widget\"")
+            && source.contains("panel.show();")
+            && source.contains("panel.hide();"),
+        "converted panels must use Panel::show/hide instead of WebviewWindow visibility"
+    );
+}
