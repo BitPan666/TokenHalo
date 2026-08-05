@@ -94,7 +94,7 @@ The capsule is approximately 260 × 96 logical pixels and visually attaches to t
 orb with a 12-pixel gap. The orb does not move. The capsule contains:
 
 - task status;
-- project name, falling back to the task title and then `Codex task`;
+- task title, falling back to the project name and then `Codex task`;
 - elapsed duration when known;
 - a primary open action;
 - a secondary dismiss or postpone action when applicable.

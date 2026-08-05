@@ -186,8 +186,8 @@ export function selectTaskCompanionDisplay(
 }
 
 export function taskCompanionLabel(event: TaskCompanionEvent) {
-  return event.projectName?.trim()
-    || event.taskTitle?.trim()
+  return event.taskTitle?.trim()
+    || event.projectName?.trim()
     || "Codex task";
 }
 

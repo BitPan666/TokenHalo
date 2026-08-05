@@ -65,21 +65,21 @@ describe("TaskToast", () => {
     );
 
     expect(screen.getByText(copy)).toBeInTheDocument();
-    expect(screen.getByText("TokenHalo")).toBeInTheDocument();
+    expect(screen.getByText("Implement companion")).toBeInTheDocument();
     expect(screen.getByText("1m 5s")).toBeInTheDocument();
   });
 
-  it("falls back from project name to task title and then Codex task", () => {
+  it("falls back from task title to project name and then Codex task", () => {
     const { rerender } = render(
       <TaskToast
-        entry={entry("working", { projectName: "", taskTitle: "Refactor settings" })}
+        entry={entry("working", { projectName: "TokenHalo", taskTitle: "" })}
         direction="left"
         language="en"
         openAction="none"
         {...actions}
       />,
     );
-    expect(screen.getByText("Refactor settings")).toBeInTheDocument();
+    expect(screen.getByText("TokenHalo")).toBeInTheDocument();
 
     rerender(
       <TaskToast

@@ -183,9 +183,9 @@ describe("taskCompanionReducer", () => {
   });
 
   it("uses safe task labels and compact durations", () => {
-    expect(taskCompanionLabel(event("alpha", "working", 1))).toBe("Project alpha");
-    expect(taskCompanionLabel(event("alpha", "working", 1, { projectName: "", taskTitle: "Refactor" })))
-      .toBe("Refactor");
+    expect(taskCompanionLabel(event("alpha", "working", 1))).toBe("Task alpha");
+    expect(taskCompanionLabel(event("alpha", "working", 1, { projectName: "TokenHalo", taskTitle: "" })))
+      .toBe("TokenHalo");
     expect(taskCompanionLabel(event("alpha", "working", 1, { projectName: null, taskTitle: null })))
       .toBe("Codex task");
     expect(formatTaskDuration(null)).toBeNull();
