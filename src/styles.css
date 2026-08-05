@@ -431,7 +431,7 @@ button { font: inherit; }
 }
 
 .task-playground-orb { width: 100px; height: 100px; }
-.task-playground-toast { position: absolute; width: 260px; height: 96px; transform: translateY(-132px); }
+.task-playground-toast { position: absolute; width: 260px; height: 96px; }
 
 .task-playground-controls {
   padding: 34px 28px;

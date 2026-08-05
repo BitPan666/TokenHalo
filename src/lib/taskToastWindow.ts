@@ -11,7 +11,7 @@ import {
 } from "./taskToastPlacement";
 
 export const TASK_TOAST_SIZE: Size = { width: 260, height: 96 };
-export const TASK_TOAST_GAP = 12;
+export const TASK_TOAST_GAP = 8;
 
 export interface TaskToastDisplayPayload {
   entry: TaskCompanionEntry;

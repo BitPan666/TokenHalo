@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { ProviderSnapshot, Language } from "../types";
 import type { TaskCompanionEntry, TaskCompanionStatus } from "../lib/taskCompanion";
 import type { ToastDirection } from "../lib/taskToastPlacement";
+import { TASK_TOAST_GAP, TASK_TOAST_SIZE } from "../lib/taskToastWindow";
 import { QuotaOrb } from "./QuotaCard";
 import { TaskToast } from "./TaskToast";
 
@@ -31,6 +32,17 @@ const directions: Array<{ value: ToastDirection; label: string }> = [
   { value: "right", label: "Right" },
   { value: "bottom", label: "Bottom" },
 ];
+
+const previewOrbSize = 100;
+
+function previewToastTransform(direction: ToastDirection) {
+  const horizontalOffset = (previewOrbSize + TASK_TOAST_SIZE.width) / 2 + TASK_TOAST_GAP;
+  const verticalOffset = (previewOrbSize + TASK_TOAST_SIZE.height) / 2 + TASK_TOAST_GAP;
+  if (direction === "top") return `translate(0px, -${verticalOffset}px)`;
+  if (direction === "bottom") return `translate(0px, ${verticalOffset}px)`;
+  if (direction === "left") return `translate(-${horizontalOffset}px, 0px)`;
+  return `translate(${horizontalOffset}px, 0px)`;
+}
 
 export function TaskCompanionPlayground() {
   const [status, setStatus] = useState<TaskCompanionStatus>("working");
@@ -66,7 +78,10 @@ export function TaskCompanionPlayground() {
             taskStatus={{ status, attentionCount: 3 }}
           />
         </div>
-        <div className="task-playground-toast">
+        <div
+          className="task-playground-toast"
+          style={{ transform: previewToastTransform(direction) }}
+        >
           <TaskToast
             entry={entry}
             direction={direction}

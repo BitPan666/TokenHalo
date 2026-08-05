@@ -91,7 +91,7 @@ and the capsule includes a status dot plus explicit copy.
 ### Sidecar capsule
 
 The capsule is approximately 260 × 96 logical pixels and visually attaches to the
-orb with a 12-pixel gap. The orb does not move. The capsule contains:
+orb with an 8-pixel gap. The orb does not move. The capsule contains:
 
 - task status;
 - task title, falling back to the project name and then `Codex task`;
@@ -162,7 +162,7 @@ Placement is recalculated whenever the capsule appears, the orb finishes moving,
 the active monitor changes, display scale changes, or the work area changes.
 
 1. Read the orb's physical frame, scale factor, and current monitor work area.
-2. Build top, bottom, left, and right candidate frames using a 12-logical-pixel
+2. Build top, bottom, left, and right candidate frames using an 8-logical-pixel
    gap.
 3. Select top whenever it has enough vertical space, clamping horizontally at the
    work-area edge when needed.

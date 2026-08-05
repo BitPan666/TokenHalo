@@ -50,7 +50,7 @@ describe("createTaskToastWindowController", () => {
 
     expect(placement.direction).toBe("top");
     expect(fake.apply).toHaveBeenCalledWith({
-      physicalPosition: { x: 840, y: 384 },
+      physicalPosition: { x: 840, y: 392 },
       logicalSize: { width: 260, height: 96 },
       payload: {
         entry,
