@@ -158,19 +158,21 @@ Placement is recalculated whenever the capsule appears, the orb finishes moving,
 the active monitor changes, display scale changes, or the work area changes.
 
 1. Read the orb's physical frame, scale factor, and current monitor work area.
-2. Build top, left, right, and bottom candidate frames using a 12-logical-pixel
+2. Build top, bottom, left, and right candidate frames using a 12-logical-pixel
    gap.
-3. Select top whenever its entire candidate frame fits.
-4. Otherwise select the fully fitting candidate with the greatest clearance from
-   the nearest work-area edge.
-5. Break equal-clearance ties in the deterministic order left, right, bottom.
-6. If no candidate fully fits, select the candidate with the greatest visible area
+3. Select top whenever it has enough vertical space, clamping horizontally at the
+   work-area edge when needed.
+4. When top has insufficient vertical space, select bottom whenever it has enough
+   vertical space, also clamping horizontally when needed.
+5. Only when neither vertical direction fits, select the fully fitting side with
+   the greatest clearance. Break equal-clearance ties in left, right order.
+6. If no direction fully fits, select the candidate with the greatest visible area
    and clamp it into the work area while preserving the gap when possible.
 7. Never move the orb as part of notification placement.
 
-The selected direction controls the capsule's entrance transform and the position
-of its visual connector. Reduced-motion mode replaces directional motion with a
-short opacity transition.
+The selected direction controls the capsule's entrance transform. The capsule has
+no directional arrow or connector. Reduced-motion mode replaces directional motion
+with a short opacity transition.
 
 ## State Model
 
@@ -327,8 +329,8 @@ connection health.
 - user-input resolution, interruption, and newer-turn reset behavior;
 - queue priority, deduplication, acknowledgement, postpone, cap, and overflow;
 - foreground suppression and timer pause/resume behavior;
-- top-first placement, clearance comparison, tie-breaking, clamping, scaling, and
-  multi-monitor work areas;
+- top-first vertical placement, top-edge bottom fallback, side-only extreme cases,
+  tie-breaking, clamping, scaling, and multi-monitor work areas;
 - safe-copy selection and inaccessible deep-link capability fallback.
 
 ### Frontend component tests
@@ -371,8 +373,8 @@ connection health.
   events.
 - Completed capsules dismiss after seven seconds and the compact quota display
   returns.
-- The orb stays fixed while the capsule selects top, left, right, or bottom within
-  the active monitor work area.
+- The orb stays fixed while the capsule prefers top, flips below near the display
+  top, and uses left or right only when neither vertical direction fits.
 - Opening expanded quota/statistics cards preserves unresolved critical task state.
 - Codex integration can be connected and disconnected without altering unrelated
   configuration.

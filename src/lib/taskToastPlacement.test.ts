@@ -26,7 +26,7 @@ describe("planTaskToastPlacement", () => {
     });
   });
 
-  it("falls back to left when top does not fit and left has the greatest clearance", () => {
+  it("uses a side only when neither top nor bottom can fit", () => {
     const result = planTaskToastPlacement(input(
       { x: 1_200, y: 20, width: 100, height: 100 },
       { workArea: { x: 0, y: 0, width: 1_440, height: 210 } },
@@ -36,11 +36,11 @@ describe("planTaskToastPlacement", () => {
     expect(result.position).toEqual({ x: 928, y: 22 });
   });
 
-  it("falls back to right near the left edge", () => {
+  it("chooses bottom near the display top even when a side has more space", () => {
     const result = planTaskToastPlacement(input({ x: 15, y: 20, width: 100, height: 100 }));
 
-    expect(result.direction).toBe("right");
-    expect(result.position).toEqual({ x: 127, y: 22 });
+    expect(result.direction).toBe("bottom");
+    expect(result.position).toEqual({ x: 0, y: 132 });
   });
 
   it("falls back to bottom when only bottom fully fits", () => {
@@ -53,7 +53,7 @@ describe("planTaskToastPlacement", () => {
     expect(result.position).toEqual({ x: 120, y: 122 });
   });
 
-  it("breaks equal-clearance fallback ties in left, right, bottom order", () => {
+  it("breaks equal-clearance side ties in left then right order", () => {
     const symmetric = input(
       { x: 450, y: 20, width: 100, height: 100 },
       { workArea: { x: 0, y: 0, width: 1_000, height: 210 } },
@@ -62,15 +62,15 @@ describe("planTaskToastPlacement", () => {
     expect(planTaskToastPlacement(symmetric).direction).toBe("left");
   });
 
-  it("chooses the greatest visible area and clamps when no direction fully fits", () => {
+  it("chooses the most visible side and clamps when no direction fully fits", () => {
     const result = planTaskToastPlacement(input(
       { x: 80, y: 50, width: 100, height: 100 },
       { workArea: { x: 0, y: 0, width: 240, height: 220 } },
     ));
 
-    expect(result.direction).toBe("bottom");
-    expect(result.position).toEqual({ x: 0, y: 124 });
-    expect(result.frame).toEqual({ x: 0, y: 124, width: 260, height: 96 });
+    expect(result.direction).toBe("left");
+    expect(result.position).toEqual({ x: 0, y: 52 });
+    expect(result.frame).toEqual({ x: 0, y: 52, width: 260, height: 96 });
   });
 
   it("respects non-zero work-area origins while clamping", () => {

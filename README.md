@@ -77,7 +77,7 @@ The compact orb adds a task-status ring while preserving its existing quota disp
 - **Completed:** green confirmation for seven seconds.
 - **Failed:** coral ring; the capsule closes after twelve seconds while the ring remains until acknowledged or superseded.
 
-The capsule is rendered in a separate non-activating window, so it does not move the orb or steal keyboard focus. It prefers the space above the orb, then adapts to the left, right, or bottom and clamps inside the current monitor work area. When Codex is foreground, ordinary working and completed capsules are suppressed; needs-input and failed attention remains visible. If foreground detection is unavailable, notifications remain visible.
+The capsule is rendered in a separate non-activating window, so it does not move the orb or steal keyboard focus. It normally appears above the orb, flips below it near the display top, and uses the left or right side only when neither vertical direction fits. Every placement is clamped inside the current monitor work area. When Codex is foreground, ordinary working and completed capsules are suppressed; needs-input and failed attention remains visible. If foreground detection is unavailable, notifications remain visible.
 
 Task-specific deep links are not assumed. The current action opens the Codex application and reports that app-level fallback honestly. Ambiguous stops clear the task state without being labeled completed or failed.
 

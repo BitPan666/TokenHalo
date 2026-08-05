@@ -34,8 +34,8 @@ interface Candidate {
   visibleArea: number;
 }
 
-const FALLBACK_ORDER: ToastDirection[] = ["left", "right", "bottom"];
-const ALL_DIRECTIONS: ToastDirection[] = ["top", ...FALLBACK_ORDER];
+const SIDE_DIRECTIONS: ToastDirection[] = ["left", "right"];
+const ALL_DIRECTIONS: ToastDirection[] = ["top", "bottom", ...SIDE_DIRECTIONS];
 
 function candidateFrame(
   direction: ToastDirection,
@@ -112,16 +112,25 @@ function clampFrame(frame: Rect, bounds: Rect): Rect {
 export function planTaskToastPlacement(input: TaskToastPlacementInput): TaskToastPlacement {
   const candidates = ALL_DIRECTIONS.map((direction) => evaluate(direction, input));
   const top = candidates[0];
+  const bottom = candidates[1];
+  const workAreaBottom = input.workArea.y + input.workArea.height;
+  const verticallyFits = (candidate: Candidate) => (
+    candidate.frame.y >= input.workArea.y
+    && candidate.frame.y + candidate.frame.height <= workAreaBottom
+  );
   let selected: Candidate;
 
-  if (top.fits) {
+  if (verticallyFits(top)) {
     selected = top;
+  } else if (verticallyFits(bottom)) {
+    selected = bottom;
   } else {
-    const fullyFitting = candidates
-      .slice(1)
+    const sideCandidates = candidates
+      .filter((candidate) => SIDE_DIRECTIONS.includes(candidate.direction));
+    const fullyFitting = sideCandidates
       .filter((candidate) => candidate.fits)
       .sort((left, right) => right.clearance - left.clearance);
-    selected = fullyFitting[0] ?? candidates
+    selected = fullyFitting[0] ?? sideCandidates
       .slice()
       .sort((left, right) => right.visibleArea - left.visibleArea)[0];
   }

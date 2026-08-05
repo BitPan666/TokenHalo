@@ -3,8 +3,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+// @ts-expect-error Vitest executes this test in Node; the app does not ship Node types.
+import { readFileSync } from "node:fs";
+// @ts-expect-error Vitest executes this test in Node; the app does not ship Node types.
+import { resolve } from "node:path";
 import type { TaskCompanionEntry, TaskCompanionStatus } from "../lib/taskCompanion";
 import { TaskToast } from "./TaskToast";
+
+declare const process: { cwd: () => string };
 
 function entry(
   status: TaskCompanionStatus,
@@ -87,7 +93,7 @@ describe("TaskToast", () => {
     expect(screen.getByText("Codex task")).toBeInTheDocument();
   });
 
-  it("uses the selected direction for the connector and entrance class", () => {
+  it("uses the selected direction for entrance motion without an arrow", () => {
     const { container } = render(
       <TaskToast
         entry={entry("completed")}
@@ -99,7 +105,17 @@ describe("TaskToast", () => {
     );
 
     expect(container.firstElementChild).toHaveClass("task-toast--right");
-    expect(container.querySelector(".task-toast-connector")).toBeInTheDocument();
+    expect(container.querySelector(".task-toast-connector")).not.toBeInTheDocument();
+  });
+
+  it("keeps the primary action on the task-ring blue for every status", () => {
+    const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+    const toastStyles = styles
+      .split(".task-toast {")[1]
+      ?.split(".task-toast-secondary")[0] ?? "";
+
+    expect(toastStyles).toContain("--task-action-blue: #5d9dff");
+    expect(toastStyles).toContain("var(--task-action-blue)");
   });
 
   it("offers Later for needs input and dismiss for terminal states", () => {

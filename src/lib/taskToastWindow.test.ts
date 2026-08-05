@@ -81,7 +81,7 @@ describe("createTaskToastWindowController", () => {
     expect((await controller.show({ entry, language: "en", openAction: "none" })).direction)
       .toBe("top");
     expect((await controller.show({ entry, language: "en", openAction: "none" })).direction)
-      .toBe("right");
+      .toBe("bottom");
     expect(readState).toHaveBeenCalledTimes(2);
   });
 

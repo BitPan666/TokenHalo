@@ -48,7 +48,6 @@ export function TaskToast({
       aria-live={entry.event.status === "needsInput" || entry.event.status === "failed" ? "assertive" : "polite"}
       onMouseDown={(event) => event.stopPropagation()}
     >
-      <span className="task-toast-connector" aria-hidden="true" />
       <span className="task-toast-dot" aria-hidden="true" />
       <section className="task-toast-copy">
         <strong>{t.taskStatus[entry.event.status]}</strong>
