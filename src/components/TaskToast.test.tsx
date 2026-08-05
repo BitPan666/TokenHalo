@@ -118,6 +118,32 @@ describe("TaskToast", () => {
     expect(toastStyles).toContain("var(--task-action-blue)");
   });
 
+  it("reveals actions only while the capsule is hovered or keyboard-focused", () => {
+    render(
+      <TaskToast
+        entry={entry("completed")}
+        direction="top"
+        language="zh-CN"
+        openAction="app"
+        {...actions}
+      />,
+    );
+
+    const toast = screen.getByRole("status");
+    expect(screen.queryByRole("button", { name: "打开 Codex" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "忽略" })).not.toBeInTheDocument();
+
+    fireEvent.mouseEnter(toast);
+    expect(screen.getByRole("button", { name: "打开 Codex" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "忽略" })).toBeInTheDocument();
+
+    fireEvent.mouseLeave(toast);
+    expect(screen.queryByRole("button", { name: "打开 Codex" })).not.toBeInTheDocument();
+
+    fireEvent.focus(toast);
+    expect(screen.getByRole("button", { name: "打开 Codex" })).toBeInTheDocument();
+  });
+
   it("offers Later for needs input and dismiss for terminal states", () => {
     const { rerender } = render(
       <TaskToast
@@ -128,6 +154,7 @@ describe("TaskToast", () => {
         {...actions}
       />,
     );
+    fireEvent.mouseEnter(screen.getByRole("status"));
     fireEvent.click(screen.getByRole("button", { name: "Later" }));
     expect(actions.onPostpone).toHaveBeenCalledOnce();
 
@@ -154,6 +181,7 @@ describe("TaskToast", () => {
         {...actions}
       />,
     );
+    fireEvent.mouseEnter(screen.getByRole("status"));
     fireEvent.click(screen.getByRole("button", { name: "Open task" }));
     expect(actions.onOpen).toHaveBeenCalledOnce();
 

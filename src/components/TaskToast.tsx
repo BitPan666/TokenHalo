@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Language } from "../types";
 import {
   formatTaskDuration,
@@ -28,6 +29,8 @@ export function TaskToast({
   onAcknowledge,
   onPostpone,
 }: TaskToastProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [hasFocus, setHasFocus] = useState(false);
   const t = copy[normalizeLanguage(language)];
   const duration = formatTaskDuration(entry.event.durationMs);
   const secondaryAction = entry.event.status === "needsInput"
@@ -40,13 +43,22 @@ export function TaskToast({
     : openAction === "app"
       ? t.taskOpenCodex
       : null;
+  const hasActions = Boolean(openLabel || secondaryAction);
+  const actionsVisible = hasActions && (isHovered || hasFocus);
 
   return (
     <main
       className={`task-toast task-toast--${entry.event.status} task-toast--${direction}`}
       role="status"
+      tabIndex={hasActions ? 0 : undefined}
       aria-live={entry.event.status === "needsInput" || entry.event.status === "failed" ? "assertive" : "polite"}
       onMouseDown={(event) => event.stopPropagation()}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setHasFocus(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setHasFocus(false);
+      }}
     >
       <span className="task-toast-dot" aria-hidden="true" />
       <section className="task-toast-copy">
@@ -54,18 +66,20 @@ export function TaskToast({
         <p>{taskCompanionLabel(entry.event)}</p>
         {duration ? <small>{duration}</small> : null}
       </section>
-      <nav className="task-toast-actions" aria-label={t.taskActions}>
-        {openLabel ? (
-          <button type="button" className="task-toast-primary" onClick={onOpen}>
-            {openLabel}
-          </button>
-        ) : null}
-        {secondaryAction ? (
-          <button type="button" className="task-toast-secondary" onClick={secondaryAction.action}>
-            {secondaryAction.label}
-          </button>
-        ) : null}
-      </nav>
+      {actionsVisible ? (
+        <nav className="task-toast-actions" aria-label={t.taskActions}>
+          {openLabel ? (
+            <button type="button" className="task-toast-primary" onClick={onOpen}>
+              {openLabel}
+            </button>
+          ) : null}
+          {secondaryAction ? (
+            <button type="button" className="task-toast-secondary" onClick={secondaryAction.action}>
+              {secondaryAction.label}
+            </button>
+          ) : null}
+        </nav>
+      ) : null}
     </main>
   );
 }

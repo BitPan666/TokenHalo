@@ -49,6 +49,7 @@ describe("TaskToastApp", () => {
 
     show?.(payload);
     await screen.findByText("Needs your input");
+    fireEvent.mouseEnter(screen.getByRole("status"));
     fireEvent.click(screen.getByRole("button", { name: "Later" }));
     expect(emitAction).toHaveBeenCalledWith({ type: "postpone", threadId: "thread-one" });
 

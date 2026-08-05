@@ -99,6 +99,10 @@ orb with a 12-pixel gap. The orb does not move. The capsule contains:
 - a primary open action;
 - a secondary dismiss or postpone action when applicable.
 
+The action area is visually hidden at rest and appears only while the capsule is
+hovered. Keyboard focus reveals the same actions so they remain accessible without
+a pointer.
+
 State-specific behavior:
 
 - **Working:** show a two-second start capsule, then retain only the blue orb ring.
@@ -336,7 +340,7 @@ connection health.
 ### Frontend component tests
 
 - four visual states and accessible labels;
-- state-specific actions and timeouts;
+- hover- and keyboard-focus-revealed actions, state-specific actions, and timeouts;
 - reduced motion and increased contrast;
 - multiple-attention badge;
 - expanded-card interaction with persistent and nonpersistent capsules;
