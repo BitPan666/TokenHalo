@@ -14,37 +14,45 @@ interface UseTaskToastTimersOptions {
   onExpire: (threadId: string) => void;
 }
 
+const COMPLETED_RETENTION_MS = 30_000;
+
+function timerKey(entry: TaskCompanionEntry) {
+  return `${entry.event.eventId}\u0000${entry.toastExpired ? "retained" : "notice"}`;
+}
+
+function timerDurationMs(entry: TaskCompanionEntry) {
+  if (entry.toastExpired) {
+    return entry.event.status === "completed" ? COMPLETED_RETENTION_MS : null;
+  }
+  return taskToastDurationMs(entry.event.status);
+}
+
 export function useTaskToastTimers({
   entries,
   paused,
   onExpire,
 }: UseTaskToastTimersOptions) {
   const recordsRef = useRef(new Map<string, TaskToastTimerRecord>());
-  const expiredEventIdsRef = useRef(new Set<string>());
   const onExpireRef = useRef(onExpire);
   onExpireRef.current = onExpire;
-  const entryKey = entries.map((entry) => entry.event.eventId).join("\u0000");
+  const entryKey = entries.map(timerKey).join("\u0001");
 
   useEffect(() => {
     const records = recordsRef.current;
-    const expiredEventIds = expiredEventIdsRef.current;
-    const visibleEventIds = new Set(entries.map((entry) => entry.event.eventId));
+    const visibleTimerKeys = new Set(entries.map(timerKey));
 
-    for (const [eventId, record] of records) {
-      if (visibleEventIds.has(eventId)) continue;
+    for (const [key, record] of records) {
+      if (visibleTimerKeys.has(key)) continue;
       if (record.timeoutId !== null) window.clearTimeout(record.timeoutId);
-      records.delete(eventId);
-    }
-    for (const eventId of expiredEventIds) {
-      if (!visibleEventIds.has(eventId)) expiredEventIds.delete(eventId);
+      records.delete(key);
     }
 
     for (const entry of entries) {
-      const eventId = entry.event.eventId;
-      if (records.has(eventId) || expiredEventIds.has(eventId)) continue;
-      const duration = taskToastDurationMs(entry.event.status);
+      const key = timerKey(entry);
+      if (records.has(key)) continue;
+      const duration = timerDurationMs(entry);
       if (duration === null) continue;
-      records.set(eventId, {
+      records.set(key, {
         threadId: entry.event.threadId,
         remainingMs: duration,
         startedAt: null,
@@ -54,12 +62,11 @@ export function useTaskToastTimers({
 
     if (!paused) {
       const startedAt = Date.now();
-      for (const [eventId, record] of records) {
+      for (const [key, record] of records) {
         if (record.timeoutId !== null) continue;
         record.startedAt = startedAt;
         record.timeoutId = window.setTimeout(() => {
-          records.delete(eventId);
-          expiredEventIds.add(eventId);
+          records.delete(key);
           onExpireRef.current(record.threadId);
         }, record.remainingMs);
       }

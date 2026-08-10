@@ -90,7 +90,7 @@ describe("useTaskCompanion", () => {
       .toEqual(["input", "failed", "completed"]);
   });
 
-  it("expires the working capsule after two seconds but retains its ring", async () => {
+  it("settles the working capsule after two seconds without hiding it", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(BASE_TIME);
     const fake = fakeBridge();
@@ -105,10 +105,13 @@ describe("useTaskCompanion", () => {
     act(() => fake.emit(event("working", 0, "sessionObserver")));
     await act(async () => undefined);
     expect(fake.bridge.show).toHaveBeenCalledOnce();
+    vi.mocked(fake.bridge.hide).mockClear();
     act(() => vi.advanceTimersByTime(2_000));
 
     expect(result.current.taskStatus?.status).toBe("working");
-    expect(fake.bridge.hide).toHaveBeenCalled();
+    expect(result.current.activeEntry?.event.status).toBe("working");
+    expect(result.current.activeEntry?.toastExpired).toBe(true);
+    expect(fake.bridge.hide).not.toHaveBeenCalled();
   });
 
   it("pauses visible task timers while the capsule stack is expanded", async () => {
@@ -137,10 +140,11 @@ describe("useTaskCompanion", () => {
       expanded: false,
     } as unknown as TaskToastActionPayload));
     act(() => vi.advanceTimersByTime(1_000));
-    expect(result.current.activeEntry).toBeNull();
+    expect(result.current.activeEntry?.event.status).toBe("working");
+    expect(result.current.activeEntry?.toastExpired).toBe(true);
   });
 
-  it("removes completed after seven seconds and keeps failed after twelve", async () => {
+  it("retains completed for thirty seconds after settling and keeps failed visible", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(BASE_TIME);
     const fake = fakeBridge();
@@ -150,10 +154,16 @@ describe("useTaskCompanion", () => {
     act(() => fake.emit(event("completed")));
     act(() => vi.advanceTimersByTime(7_000));
     expect(result.current.taskStatus).toBeNull();
+    expect(result.current.activeEntry?.event.status).toBe("completed");
+    act(() => vi.advanceTimersByTime(29_999));
+    expect(result.current.activeEntry?.event.status).toBe("completed");
+    act(() => vi.advanceTimersByTime(1));
+    expect(result.current.activeEntry).toBeNull();
 
-    act(() => fake.emit(event("failed", 8)));
-    act(() => vi.advanceTimersByTime(12_000));
+    act(() => fake.emit(event("failed", 38)));
+    act(() => vi.advanceTimersByTime(60_000));
     expect(result.current.taskStatus?.status).toBe("failed");
+    expect(result.current.activeEntry?.event.status).toBe("failed");
   });
 
   it("postpones needs input for ten minutes and restores it afterward", async () => {

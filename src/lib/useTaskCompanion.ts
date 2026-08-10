@@ -141,14 +141,6 @@ export function useTaskCompanion({
     });
   }, [bridge, display.hiddenCount, language, stackExpanded, toastEntries]);
 
-  useEffect(() => {
-    if (compact) return;
-    const selected = display.selected;
-    if (selected && (selected.event.status === "working" || selected.event.status === "completed")) {
-      dispatch({ type: "expireToast", threadId: selected.event.threadId, nowMs: Date.now() });
-    }
-  }, [compact, display.selected]);
-
   return {
     taskStatus: display.ring ? {
       status: display.ring.event.status,

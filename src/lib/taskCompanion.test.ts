@@ -168,33 +168,40 @@ describe("taskCompanionReducer", () => {
     expect(selectTaskCompanionDisplay(state, BASE_TIME + 5_000).unresolvedCount).toBe(2);
   });
 
-  it("expires completed capsules but keeps working and failed rings", () => {
+  it("settles ordinary capsules before clearing completed tasks", () => {
     const completed = acceptAll([event("complete", "completed", 1)]);
-    const completedExpired = taskCompanionReducer(completed, {
+    const completedSettled = taskCompanionReducer(completed, {
       type: "expireToast",
       threadId: "complete",
       nowMs: BASE_TIME + 8_000,
     });
-    expect(completedExpired.entries.complete).toBeUndefined();
+    expect(completedSettled.entries.complete.toastExpired).toBe(true);
+    expect(selectTaskCompanionDisplay(completedSettled, BASE_TIME + 9_000).selected?.event.threadId)
+      .toBe("complete");
 
-    for (const status of ["working", "failed"] as const) {
-      const active = acceptAll([event(status, status, 1)]);
-      const expired = taskCompanionReducer(active, {
-        type: "expireToast",
-        threadId: status,
-        nowMs: BASE_TIME + 20_000,
-      });
-      expect(expired.entries[status].toastExpired).toBe(true);
-      expect(selectTaskCompanionDisplay(expired, BASE_TIME + 21_000).ring?.event.status)
-        .toBe(status);
-    }
+    const completedCleared = taskCompanionReducer(completedSettled, {
+      type: "expireToast",
+      threadId: "complete",
+      nowMs: BASE_TIME + 38_000,
+    });
+    expect(completedCleared.entries.complete).toBeUndefined();
+
+    const working = acceptAll([event("working", "working", 1)]);
+    const workingSettled = taskCompanionReducer(working, {
+      type: "expireToast",
+      threadId: "working",
+      nowMs: BASE_TIME + 3_000,
+    });
+    expect(workingSettled.entries.working.toastExpired).toBe(true);
+    expect(selectTaskCompanionDisplay(workingSettled, BASE_TIME + 4_000).selected?.event.threadId)
+      .toBe("working");
   });
 
   it("uses the approved state-specific toast durations", () => {
     expect(taskToastDurationMs("working")).toBe(2_000);
     expect(taskToastDurationMs("needsInput")).toBeNull();
     expect(taskToastDurationMs("completed")).toBe(7_000);
-    expect(taskToastDurationMs("failed")).toBe(12_000);
+    expect(taskToastDurationMs("failed")).toBeNull();
   });
 
   it("uses safe task labels and compact durations", () => {

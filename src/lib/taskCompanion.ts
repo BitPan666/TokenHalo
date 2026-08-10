@@ -59,7 +59,6 @@ export function createTaskCompanionState(): TaskCompanionState {
 export function taskToastDurationMs(status: TaskCompanionStatus): number | null {
   if (status === "working") return 2_000;
   if (status === "completed") return 7_000;
-  if (status === "failed") return 12_000;
   return null;
 }
 
@@ -146,7 +145,7 @@ export function taskCompanionReducer(
     };
   }
 
-  if (current.event.status === "completed") {
+  if (current.event.status === "completed" && current.toastExpired) {
     const entries = { ...state.entries };
     delete entries[action.threadId];
     return { ...state, entries };
@@ -175,8 +174,8 @@ export function selectTaskCompanionDisplay(
     ))
     .sort(newestFirst)[0] ?? null;
   const eligible = entries
-    .filter(({ event, acknowledged, postponedUntil, toastExpired }) => {
-      if (acknowledged || toastExpired) return false;
+    .filter(({ event, acknowledged, postponedUntil }) => {
+      if (acknowledged) return false;
       if (event.status === "needsInput" && postponedUntil !== null) {
         return postponedUntil <= nowMs;
       }

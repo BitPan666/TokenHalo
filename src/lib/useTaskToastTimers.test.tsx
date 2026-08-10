@@ -90,4 +90,23 @@ describe("useTaskToastTimers", () => {
     act(() => vi.advanceTimersByTime(1));
     expect(onExpire).toHaveBeenCalledWith("completed");
   });
+
+  it("keeps a completed task for thirty seconds after its initial notice settles", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(BASE_TIME);
+    const onExpire = vi.fn();
+    const completed = entry("completed", "completed");
+    const { rerender } = renderHook(
+      ({ entries }) => useTaskToastTimers({ entries, paused: false, onExpire }),
+      { initialProps: { entries: [completed] } },
+    );
+
+    act(() => vi.advanceTimersByTime(7_000));
+    expect(onExpire).toHaveBeenCalledTimes(1);
+    rerender({ entries: [{ ...completed, toastExpired: true }] });
+    act(() => vi.advanceTimersByTime(29_999));
+    expect(onExpire).toHaveBeenCalledTimes(1);
+    act(() => vi.advanceTimersByTime(1));
+    expect(onExpire).toHaveBeenCalledTimes(2);
+  });
 });
