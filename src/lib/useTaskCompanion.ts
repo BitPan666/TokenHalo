@@ -59,6 +59,12 @@ export function useTaskCompanion({
     () => selectTaskCompanionDisplay(state, clock),
     [clock, state],
   );
+  const toastEntries = useMemo(() => display.visible.filter((entry) => {
+    if (entry.event.source === "simulator") return true;
+    if (!compact) return false;
+    const ordinary = entry.event.status === "working" || entry.event.status === "completed";
+    return !(codexForeground && ordinary);
+  }), [codexForeground, compact, display.visible]);
 
   useEffect(() => {
     if (bridge === defaultBridge && !("__TAURI_INTERNALS__" in window)) return;
@@ -113,7 +119,7 @@ export function useTaskCompanion({
   }, [clock, state.entries]);
 
   useTaskToastTimers({
-    entries: display.visible,
+    entries: toastEntries,
     paused: stackExpanded,
     onExpire: (threadId) => {
       dispatch({ type: "expireToast", threadId, nowMs: Date.now() });
@@ -122,23 +128,21 @@ export function useTaskCompanion({
 
   useEffect(() => {
     if (bridge === defaultBridge && !("__TAURI_INTERNALS__" in window)) return;
-    const selected = display.selected;
+    const selected = toastEntries[0] ?? null;
     if (!selected) {
       if (stackExpanded) setStackExpanded(false);
       void bridge.hide();
       return;
     }
 
-    const ordinary = selected.event.status === "working" || selected.event.status === "completed";
-    const preview = selected.event.source === "simulator";
-    const visible = preview || (compact && !(codexForeground && ordinary));
-    if (visible) {
-      void bridge.show({ entry: selected, language, openAction: "app" });
-    } else {
-      void bridge.hide();
-    }
-
-  }, [bridge, codexForeground, compact, display.selected, language, stackExpanded]);
+    void bridge.show({
+      entries: toastEntries,
+      hiddenCount: display.hiddenCount,
+      expanded: stackExpanded,
+      language,
+      openAction: "app",
+    });
+  }, [bridge, display.hiddenCount, language, stackExpanded, toastEntries]);
 
   useEffect(() => {
     if (compact) return;

@@ -2,9 +2,14 @@ import { useMemo, useState } from "react";
 import type { ProviderSnapshot, Language } from "../types";
 import type { TaskCompanionEntry, TaskCompanionStatus } from "../lib/taskCompanion";
 import type { ToastDirection } from "../lib/taskToastPlacement";
-import { TASK_TOAST_GAP, TASK_TOAST_SIZE } from "../lib/taskToastWindow";
+import {
+  TASK_TOAST_GAP,
+  TASK_TOAST_SIZE,
+  taskToastStackSize,
+} from "../lib/taskToastWindow";
 import { QuotaOrb } from "./QuotaCard";
-import { TaskToast } from "./TaskToast";
+import { TaskPermissionToast } from "./TaskPermissionToast";
+import { TaskToastStack } from "./TaskToastStack";
 
 const previewSnapshot: ProviderSnapshot = {
   provider: "codex",
@@ -35,9 +40,9 @@ const directions: Array<{ value: ToastDirection; label: string }> = [
 
 const previewOrbSize = 100;
 
-function previewToastTransform(direction: ToastDirection) {
-  const horizontalOffset = (previewOrbSize + TASK_TOAST_SIZE.width) / 2 + TASK_TOAST_GAP;
-  const verticalOffset = (previewOrbSize + TASK_TOAST_SIZE.height) / 2 + TASK_TOAST_GAP;
+function previewToastTransform(direction: ToastDirection, toastSize = TASK_TOAST_SIZE) {
+  const horizontalOffset = (previewOrbSize + toastSize.width) / 2 + TASK_TOAST_GAP;
+  const verticalOffset = (previewOrbSize + toastSize.height) / 2 + TASK_TOAST_GAP;
   if (direction === "top") return `translate(0px, -${verticalOffset}px)`;
   if (direction === "bottom") return `translate(0px, ${verticalOffset}px)`;
   if (direction === "left") return `translate(-${horizontalOffset}px, 0px)`;
@@ -48,6 +53,9 @@ export function TaskCompanionPlayground() {
   const [status, setStatus] = useState<TaskCompanionStatus>("working");
   const [direction, setDirection] = useState<ToastDirection>("top");
   const [language, setLanguage] = useState<Language>("zh-CN");
+  const [permissionPreview, setPermissionPreview] = useState(false);
+  const [stackPreview, setStackPreview] = useState(false);
+  const [stackExpanded, setStackExpanded] = useState(false);
   const entry = useMemo<TaskCompanionEntry>(() => ({
     event: {
       schemaVersion: 1,
@@ -65,6 +73,32 @@ export function TaskCompanionPlayground() {
     postponedUntil: null,
     toastExpired: false,
   }), [status]);
+  const stackEntries = useMemo<TaskCompanionEntry[]>(() => (
+    [
+      ["input", "needsInput", "Review the requested permission"],
+      ["failed", "failed", "Fix the desktop packaging failure"],
+      ["completed", "completed", "Implement the capsule stack"],
+    ] as const
+  ).map(([threadId, itemStatus, taskTitle], index) => ({
+    event: {
+      ...entry.event,
+      eventId: `preview-${threadId}`,
+      threadId: `preview-${threadId}`,
+      turnId: `preview-${threadId}-turn`,
+      status: itemStatus,
+      occurredAt: `2026-08-04T10:00:0${index}.000Z`,
+      taskTitle,
+    },
+    acknowledged: false,
+    postponedUntil: null,
+    toastExpired: false,
+  })), [entry.event]);
+  const visibleEntries = stackPreview ? stackEntries : [entry];
+  const toastSize = permissionPreview
+    ? TASK_TOAST_SIZE
+    : taskToastStackSize(visibleEntries.length, stackPreview && stackExpanded);
+  const growth = direction === "bottom" ? "down" : "up";
+  const ringStatus = stackPreview ? "needsInput" : status;
 
   return (
     <main className="task-playground">
@@ -75,22 +109,39 @@ export function TaskCompanionPlayground() {
             language={language}
             onDrag={() => undefined}
             onHover={() => undefined}
-            taskStatus={{ status, attentionCount: 3 }}
+            taskStatus={permissionPreview ? null : { status: ringStatus, attentionCount: 3 }}
           />
         </div>
         <div
           className="task-playground-toast"
-          style={{ transform: previewToastTransform(direction) }}
+          style={{
+            width: `${toastSize.width}px`,
+            height: `${toastSize.height}px`,
+            transform: previewToastTransform(direction, toastSize),
+          }}
         >
-          <TaskToast
-            entry={entry}
-            direction={direction}
-            language={language}
-            openAction="app"
-            onOpen={() => undefined}
-            onAcknowledge={() => undefined}
-            onPostpone={() => undefined}
-          />
+          {permissionPreview ? (
+            <TaskPermissionToast
+              direction={direction}
+              language={language}
+              onEnable={() => undefined}
+              onDismiss={() => undefined}
+            />
+          ) : (
+            <TaskToastStack
+              entries={visibleEntries}
+              hiddenCount={stackPreview ? 2 : 0}
+              expanded={stackPreview && stackExpanded}
+              growth={growth}
+              direction={direction}
+              language={language}
+              openAction="app"
+              onExpandedChange={setStackExpanded}
+              onOpen={() => undefined}
+              onAcknowledge={() => undefined}
+              onPostpone={() => undefined}
+            />
+          )}
         </div>
       </section>
       <aside className="task-playground-controls">
@@ -98,12 +149,39 @@ export function TaskCompanionPlayground() {
         <h1>Orb + sidecar capsule</h1>
         <fieldset>
           <legend>State</legend>
+          <button
+            type="button"
+            className={permissionPreview ? "is-active" : ""}
+            onClick={() => {
+              setPermissionPreview(true);
+              setStackPreview(false);
+              setStackExpanded(false);
+            }}
+          >
+            首次询问
+          </button>
+          <button
+            type="button"
+            className={stackPreview ? "is-active" : ""}
+            onClick={() => {
+              setPermissionPreview(false);
+              setStackPreview(true);
+              setStackExpanded(false);
+            }}
+          >
+            多任务堆叠
+          </button>
           {statuses.map((item) => (
             <button
               type="button"
-              className={status === item.value ? "is-active" : ""}
+              className={!permissionPreview && !stackPreview && status === item.value ? "is-active" : ""}
               key={item.value}
-              onClick={() => setStatus(item.value)}
+              onClick={() => {
+                setPermissionPreview(false);
+                setStackPreview(false);
+                setStackExpanded(false);
+                setStatus(item.value);
+              }}
             >
               {item.label}
             </button>

@@ -15,12 +15,13 @@ function event(
   status: TaskCompanionEventStatus,
   seconds = 0,
   source: TaskCompanionEvent["source"] = "simulator",
+  threadId = "thread-one",
 ): TaskCompanionEvent {
   return {
     schemaVersion: 1,
-    eventId: `${status}-${seconds}`,
-    threadId: "thread-one",
-    turnId: "turn-one",
+    eventId: `${threadId}-${status}-${seconds}`,
+    threadId,
+    turnId: `${threadId}-turn`,
     status,
     occurredAt: new Date(BASE_TIME + seconds * 1_000).toISOString(),
     projectName: "TokenHalo",
@@ -54,6 +55,41 @@ afterEach(() => {
 });
 
 describe("useTaskCompanion", () => {
+  it("sends the three highest-priority tasks and the hidden count to the toast window", async () => {
+    const fake = fakeBridge();
+    renderHook(() => useTaskCompanion({
+      compact: true,
+      language: "zh-CN",
+      codexForeground: false,
+      bridge: fake.bridge,
+    }));
+    await act(async () => undefined);
+
+    act(() => {
+      fake.emit(event("working", 4, "simulator", "working"));
+      fake.emit(event("completed", 3, "simulator", "completed"));
+      fake.emit(event("failed", 2, "simulator", "failed"));
+      fake.emit(event("needsInput", 1, "simulator", "input"));
+    });
+    await act(async () => undefined);
+
+    expect(fake.bridge.show).toHaveBeenLastCalledWith(expect.objectContaining({
+      entries: expect.arrayContaining([
+        expect.objectContaining({ event: expect.objectContaining({ threadId: "input" }) }),
+        expect.objectContaining({ event: expect.objectContaining({ threadId: "failed" }) }),
+        expect.objectContaining({ event: expect.objectContaining({ threadId: "completed" }) }),
+      ]),
+      hiddenCount: 1,
+      expanded: false,
+      language: "zh-CN",
+      openAction: "app",
+    }));
+    const request = vi.mocked(fake.bridge.show).mock.calls.at(-1)?.[0];
+    if (!request || request.kind === "permission") throw new Error("task stack request missing");
+    expect(request.entries.map((item) => item.event.threadId))
+      .toEqual(["input", "failed", "completed"]);
+  });
+
   it("expires the working capsule after two seconds but retains its ring", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(BASE_TIME);

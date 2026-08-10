@@ -2,11 +2,15 @@
 
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+// @ts-expect-error Vitest executes this test in Node; the app does not ship Node types.
 import { readFileSync } from "node:fs";
+// @ts-expect-error Vitest executes this test in Node; the app does not ship Node types.
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TaskCompanionEntry, TaskCompanionStatus } from "../lib/taskCompanion";
 import { TaskToastStack } from "./TaskToastStack";
+
+declare const process: { cwd: () => string };
 
 function entry(threadId: string, status: TaskCompanionStatus): TaskCompanionEntry {
   return {
