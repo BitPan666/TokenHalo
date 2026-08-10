@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use serde_json::Value;
 use walkdir::WalkDir;
 
@@ -17,7 +18,6 @@ const TITLE_LIMIT: usize = 56;
 struct ActiveTurn {
     id: String,
     started_at: String,
-    task_title: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -31,11 +31,21 @@ struct ObservedSession {
 #[derive(Debug)]
 pub struct SessionObserver {
     sessions_root: PathBuf,
+    state_db_paths: Vec<PathBuf>,
     files: HashMap<PathBuf, ObservedSession>,
 }
 
 impl SessionObserver {
     pub fn new(sessions_root: PathBuf) -> Self {
+        let state_db_paths = sessions_root
+            .parent()
+            .map(|codex_root| {
+                vec![
+                    codex_root.join("state_5.sqlite"),
+                    codex_root.join("sqlite").join("state_5.sqlite"),
+                ]
+            })
+            .unwrap_or_default();
         let mut files = HashMap::new();
         for path in session_paths(&sessions_root) {
             let offset = fs::metadata(&path)
@@ -52,6 +62,7 @@ impl SessionObserver {
         }
         Self {
             sessions_root,
+            state_db_paths,
             files,
         }
     }
@@ -66,7 +77,11 @@ impl SessionObserver {
                     thread_id: thread_id_from_path(&path),
                     ..ObservedSession::default()
                 });
-            events.extend(read_appended(&path, session));
+            let mut appended = read_appended(&path, session);
+            for event in &mut appended {
+                event.task_title = resolve_task_title(&self.state_db_paths, &event.thread_id);
+            }
+            events.extend(appended);
         }
         events
     }
@@ -108,19 +123,26 @@ fn project_name(cwd: &str) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn task_title(message: &str) -> Option<String> {
-    let request = message
-        .rsplit_once("## My request for Codex:")
-        .map(|(_, value)| value)
-        .unwrap_or(message);
-    let line = request.lines().map(str::trim).find(|line| {
-        !line.is_empty()
-            && !line.starts_with('<')
-            && !line.starts_with('#')
-            && !line.starts_with("Files mentioned")
+fn resolve_task_title(state_db_paths: &[PathBuf], thread_id: &str) -> Option<String> {
+    let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let title = state_db_paths.iter().find_map(|path| {
+        let connection = Connection::open_with_flags(path, flags).ok()?;
+        connection
+            .query_row(
+                "SELECT title
+                 FROM threads
+                 WHERE id = ?1
+                   AND trim(title) <> ''",
+                [thread_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .ok()
+            .flatten()
     })?;
-    let mut title: String = line.chars().take(TITLE_LIMIT).collect();
-    if line.chars().count() > TITLE_LIMIT {
+    let trimmed = title.trim();
+    let mut title: String = trimmed.chars().take(TITLE_LIMIT).collect();
+    if trimmed.chars().count() > TITLE_LIMIT {
         title.push('…');
     }
     Some(title)
@@ -154,7 +176,7 @@ fn event(
         status,
         occurred_at,
         project_name: session.project_name.clone(),
-        task_title: turn.task_title.clone(),
+        task_title: None,
         duration_ms,
         source: "sessionObserver".to_string(),
     })
@@ -209,18 +231,13 @@ fn consume_line(session: &mut ObservedSession, line: &str) -> Vec<TaskCompanionE
             session.active_turn = Some(ActiveTurn {
                 id: turn_id,
                 started_at,
-                task_title: None,
             });
             Vec::new()
         }
         "user_message" => {
-            let Some(turn) = session.active_turn.as_mut() else {
+            let Some(_) = session.active_turn.as_ref() else {
                 return Vec::new();
             };
-            turn.task_title = payload
-                .and_then(|data| data.get("message"))
-                .and_then(Value::as_str)
-                .and_then(task_title);
             event(session, TaskEventStatus::Working, timestamp, None)
                 .into_iter()
                 .collect()
@@ -311,6 +328,8 @@ fn read_appended(path: &Path, session: &mut ObservedSession) -> Vec<TaskCompanio
 mod tests {
     use std::{fs::OpenOptions, io::Write};
 
+    use rusqlite::Connection;
+
     use super::*;
 
     fn append(path: &Path, lines: &[&str]) {
@@ -321,7 +340,7 @@ mod tests {
     }
 
     #[test]
-    fn observes_only_new_local_session_events_and_keeps_task_title_in_memory() {
+    fn observes_only_new_local_session_events_without_using_message_as_title() {
         let root = tempfile::tempdir().unwrap();
         let path = root
             .path()
@@ -345,13 +364,102 @@ mod tests {
         let events = observer.poll();
         assert_eq!(events.len(), 2);
         assert_eq!(events[0].status, TaskEventStatus::Working);
-        assert_eq!(
-            events[0].task_title.as_deref(),
-            Some("优化任务胶囊的自适应位置")
-        );
+        assert_eq!(events[0].task_title, None);
         assert_eq!(events[1].status, TaskEventStatus::Completed);
         assert_eq!(events[1].duration_ms, Some(5000));
         assert_eq!(events[1].source, "sessionObserver");
+    }
+
+    #[test]
+    fn uses_codex_task_title_instead_of_user_message_content() {
+        let root = tempfile::tempdir().unwrap();
+        let codex_root = root.path().join(".codex");
+        let sessions_root = codex_root.join("sessions");
+        fs::create_dir_all(&sessions_root).unwrap();
+        let path = sessions_root
+            .join("rollout-2026-08-10T10-00-00-019fea73-29fb-7fa0-beb4-70393b3af5a8.jsonl");
+        fs::write(&path, "").unwrap();
+
+        let connection = Connection::open(codex_root.join("state_5.sqlite")).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE threads (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    first_user_message TEXT NOT NULL
+                );",
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO threads (id, title, first_user_message) VALUES (?1, ?2, ?3)",
+                (
+                    "019fea73-29fb-7fa0-beb4-70393b3af5a8",
+                    "优化任务胶囊",
+                    "这是一段对话内容，不应该显示在胶囊里",
+                ),
+            )
+            .unwrap();
+        drop(connection);
+
+        let mut observer = SessionObserver::new(sessions_root);
+        append(
+            &path,
+            &[
+                r#"{"timestamp":"2026-08-10T10:00:00Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-1","started_at":"2026-08-10T10:00:00Z"}}"#,
+                r#"{"timestamp":"2026-08-10T10:00:01Z","type":"event_msg","payload":{"type":"user_message","message":"我又输入了一段对话内容"}}"#,
+            ],
+        );
+
+        let events = observer.poll();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].task_title.as_deref(), Some("优化任务胶囊"));
+    }
+
+    #[test]
+    fn uses_the_persisted_codex_title_even_before_codex_shortens_it() {
+        let root = tempfile::tempdir().unwrap();
+        let codex_root = root.path().join(".codex");
+        let sessions_root = codex_root.join("sessions");
+        fs::create_dir_all(&sessions_root).unwrap();
+        let path = sessions_root
+            .join("rollout-2026-08-10T10-00-00-019fea73-29fb-7fa0-beb4-70393b3af5a9.jsonl");
+        fs::write(&path, "").unwrap();
+
+        let connection = Connection::open(codex_root.join("state_5.sqlite")).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE threads (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    first_user_message TEXT NOT NULL
+                );",
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO threads (id, title, first_user_message) VALUES (?1, ?2, ?3)",
+                (
+                    "019fea73-29fb-7fa0-beb4-70393b3af5a9",
+                    "整理发布说明",
+                    "整理发布说明",
+                ),
+            )
+            .unwrap();
+        drop(connection);
+
+        let mut observer = SessionObserver::new(sessions_root);
+        append(
+            &path,
+            &[
+                r#"{"timestamp":"2026-08-10T10:00:00Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-1","started_at":"2026-08-10T10:00:00Z"}}"#,
+                r#"{"timestamp":"2026-08-10T10:00:01Z","type":"event_msg","payload":{"type":"user_message","message":"继续处理刚才的按钮"}}"#,
+            ],
+        );
+
+        let events = observer.poll();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].task_title.as_deref(), Some("整理发布说明"));
     }
 
     #[test]
@@ -361,7 +469,6 @@ mod tests {
             active_turn: Some(ActiveTurn {
                 id: "turn-1".into(),
                 started_at: "2026-08-06T10:00:00Z".into(),
-                task_title: Some("本机任务".into()),
             }),
             ..ObservedSession::default()
         };
@@ -412,6 +519,6 @@ mod tests {
         let events = observer.poll();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].status, TaskEventStatus::Working);
-        assert_eq!(events[0].task_title.as_deref(), Some("继续旧任务"));
+        assert_eq!(events[0].task_title, None);
     }
 }
