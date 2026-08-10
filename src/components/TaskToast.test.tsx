@@ -118,6 +118,33 @@ describe("TaskToast", () => {
     expect(toastStyles).toContain("var(--task-action-blue)");
   });
 
+  it("keeps the transparent desktop window free of a rectangular backing layer", () => {
+    const style = document.createElement("style");
+    style.textContent = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+    document.head.append(style);
+    render(
+      <TaskToast
+        entry={entry("completed")}
+        direction="top"
+        language="zh-CN"
+        openAction="app"
+        {...actions}
+      />,
+    );
+
+    const computed = getComputedStyle(screen.getByRole("status"));
+    const toastRule = Array.from((style.sheet as CSSStyleSheet).cssRules)
+      .find((rule): rule is CSSStyleRule => (
+        rule instanceof CSSStyleRule && rule.selectorText === ".task-toast"
+      ));
+    expect(toastRule?.style.getPropertyValue("backdrop-filter")).toBe("none");
+    expect(computed.boxShadow).toMatch(/^inset /);
+    expect(computed.boxShadow).not.toContain(",");
+    expect(computed.overflow).toBe("hidden");
+
+    style.remove();
+  });
+
   it("reveals actions only while the capsule is hovered or keyboard-focused", () => {
     render(
       <TaskToast

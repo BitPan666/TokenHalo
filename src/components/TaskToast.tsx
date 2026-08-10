@@ -69,12 +69,26 @@ export function TaskToast({
       {actionsVisible ? (
         <nav className="task-toast-actions" aria-label={t.taskActions}>
           {openLabel ? (
-            <button type="button" className="task-toast-primary" onClick={onOpen}>
+            <button
+              type="button"
+              className="task-toast-primary"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpen();
+              }}
+            >
               {openLabel}
             </button>
           ) : null}
           {secondaryAction ? (
-            <button type="button" className="task-toast-secondary" onClick={secondaryAction.action}>
+            <button
+              type="button"
+              className="task-toast-secondary"
+              onClick={(event) => {
+                event.stopPropagation();
+                secondaryAction.action();
+              }}
+            >
               {secondaryAction.label}
             </button>
           ) : null}

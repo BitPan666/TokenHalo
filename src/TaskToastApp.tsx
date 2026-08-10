@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { TaskToast } from "./components/TaskToast";
+import { TaskPermissionToast } from "./components/TaskPermissionToast";
+import { TaskToastStack } from "./components/TaskToastStack";
 import {
   emitTaskToastAction,
   listenTaskToastSurfaceEvents,
@@ -24,13 +25,20 @@ const defaultBridge: TaskToastAppBridge = {
 
 export function TaskToastApp({ bridge = defaultBridge }: { bridge?: TaskToastAppBridge }) {
   const [display, setDisplay] = useState<TaskToastDisplayPayload | null>(null);
+  const [stackExpanded, setStackExpanded] = useState(false);
 
   useEffect(() => {
     let disposed = false;
     let unlisten: () => void = () => undefined;
     void bridge.listen({
-      onDisplay: (payload) => setDisplay(payload),
-      onHide: () => setDisplay(null),
+      onDisplay: (payload) => {
+        setDisplay(payload);
+        if (payload.kind !== "permission") setStackExpanded(payload.expanded);
+      },
+      onHide: () => {
+        setDisplay(null);
+        setStackExpanded(false);
+      },
     }).then((stop) => {
       if (disposed) stop();
       else unlisten = stop;
@@ -42,13 +50,27 @@ export function TaskToastApp({ bridge = defaultBridge }: { bridge?: TaskToastApp
   }, [bridge]);
 
   if (!display) return null;
-  const threadId = display.entry.event.threadId;
+  if (display.kind === "permission") {
+    return (
+      <TaskPermissionToast
+        direction={display.direction}
+        language={display.language}
+        onEnable={() => void bridge.emitAction({ type: "enableTaskNotifications" })}
+        onDismiss={() => void bridge.emitAction({ type: "dismissTaskNotifications" })}
+      />
+    );
+  }
   return (
-    <TaskToast
+    <TaskToastStack
       {...display}
-      onOpen={() => void bridge.emitAction({ type: "open", threadId })}
-      onAcknowledge={() => void bridge.emitAction({ type: "acknowledge", threadId })}
-      onPostpone={() => void bridge.emitAction({ type: "postpone", threadId })}
+      expanded={stackExpanded}
+      onExpandedChange={(expanded) => {
+        setStackExpanded(expanded);
+        void bridge.emitAction({ type: "setStackExpanded", expanded });
+      }}
+      onOpen={(threadId) => void bridge.emitAction({ type: "open", threadId })}
+      onAcknowledge={(threadId) => void bridge.emitAction({ type: "acknowledge", threadId })}
+      onPostpone={(threadId) => void bridge.emitAction({ type: "postpone", threadId })}
     />
   );
 }
