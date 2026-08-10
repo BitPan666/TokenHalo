@@ -60,6 +60,13 @@ jobs:
           tagName: v__VERSION__
           releaseName: TokenHalo v__VERSION__
           releaseBody: |
+            ## Experience build
+
+            - Adds the pet-style multi-task capsule stack beside the floating orb.
+            - Hover, click, or focus the stack to expand up to three tasks; move away to collapse it again.
+            - Each card keeps its own actions, which appear only while that card is hovered or focused.
+            - Task reminders stay on this computer and do not upload conversations, code, or project files.
+
             ## Download
 
             - macOS: download the Universal `.dmg`. The unsigned build may require right-clicking TokenHalo and choosing **Open** the first time.
@@ -69,5 +76,5 @@ jobs:
 
             TokenHalo reads the local Codex Desktop login state for remaining-quota requests and reads local `~/.codex/sessions` Token counters for on-device statistics. It does not upload prompts, chats, raw session text, local statistics, or credentials.
           releaseDraft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
           args: ${{ matrix.args }}
