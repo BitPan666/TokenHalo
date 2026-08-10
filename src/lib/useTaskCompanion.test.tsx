@@ -11,7 +11,11 @@ import {
 
 const BASE_TIME = Date.parse("2026-08-04T10:00:00.000Z");
 
-function event(status: TaskCompanionEventStatus, seconds = 0): TaskCompanionEvent {
+function event(
+  status: TaskCompanionEventStatus,
+  seconds = 0,
+  source: TaskCompanionEvent["source"] = "simulator",
+): TaskCompanionEvent {
   return {
     schemaVersion: 1,
     eventId: `${status}-${seconds}`,
@@ -22,7 +26,7 @@ function event(status: TaskCompanionEventStatus, seconds = 0): TaskCompanionEven
     projectName: "TokenHalo",
     taskTitle: null,
     durationMs: null,
-    source: "simulator",
+    source,
   };
 }
 
@@ -62,13 +66,42 @@ describe("useTaskCompanion", () => {
     }));
     await act(async () => undefined);
 
-    act(() => fake.emit(event("working")));
+    act(() => fake.emit(event("working", 0, "sessionObserver")));
     await act(async () => undefined);
     expect(fake.bridge.show).toHaveBeenCalledOnce();
     act(() => vi.advanceTimersByTime(2_000));
 
     expect(result.current.taskStatus?.status).toBe("working");
     expect(fake.bridge.hide).toHaveBeenCalled();
+  });
+
+  it("pauses visible task timers while the capsule stack is expanded", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(BASE_TIME);
+    const fake = fakeBridge();
+    const { result } = renderHook(() => useTaskCompanion({
+      compact: true,
+      language: "en",
+      codexForeground: false,
+      bridge: fake.bridge,
+    }));
+    await act(async () => undefined);
+
+    act(() => fake.emit(event("working", 0, "sessionObserver")));
+    act(() => vi.advanceTimersByTime(1_000));
+    act(() => fake.action({
+      type: "setStackExpanded",
+      expanded: true,
+    } as unknown as TaskToastActionPayload));
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(result.current.activeEntry?.event.threadId).toBe("thread-one");
+
+    act(() => fake.action({
+      type: "setStackExpanded",
+      expanded: false,
+    } as unknown as TaskToastActionPayload));
+    act(() => vi.advanceTimersByTime(1_000));
+    expect(result.current.activeEntry).toBeNull();
   });
 
   it("removes completed after seven seconds and keeps failed after twelve", async () => {
@@ -110,12 +143,43 @@ describe("useTaskCompanion", () => {
     );
     await act(async () => undefined);
 
-    act(() => fake.emit(event("working")));
+    act(() => fake.emit(event("working", 0, "sessionObserver")));
     expect(fake.bridge.show).not.toHaveBeenCalled();
     act(() => fake.emit(event("needsInput", 1)));
     await waitFor(() => expect(fake.bridge.show).toHaveBeenCalledOnce());
 
     rerender({ foreground: false });
+  });
+
+  it("shows a test preview even while the widget is expanded and Codex is foreground", async () => {
+    const fake = fakeBridge();
+    renderHook(() => useTaskCompanion({
+      compact: false,
+      language: "zh-CN",
+      codexForeground: true,
+      bridge: fake.bridge,
+    }));
+    await act(async () => undefined);
+
+    act(() => fake.emit(event("completed")));
+
+    await waitFor(() => expect(fake.bridge.show).toHaveBeenCalledOnce());
+  });
+
+  it("leaves first-use task reminder actions to the onboarding flow", async () => {
+    const fake = fakeBridge();
+    renderHook(() => useTaskCompanion({
+      compact: true,
+      language: "zh-CN",
+      codexForeground: false,
+      bridge: fake.bridge,
+    }));
+    await act(async () => undefined);
+
+    act(() => fake.action({ type: "enableTaskNotifications" }));
+    act(() => fake.action({ type: "dismissTaskNotifications" }));
+
+    expect(fake.bridge.open).not.toHaveBeenCalled();
   });
 
   it("keeps lifecycle ordering across attention, completion, failure, and interruption", async () => {

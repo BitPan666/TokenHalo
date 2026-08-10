@@ -13,23 +13,52 @@ import {
 export const TASK_TOAST_SIZE: Size = { width: 260, height: 96 };
 export const TASK_TOAST_GAP = 8;
 
-export interface TaskToastDisplayPayload {
+export interface TaskStatusToastDisplayPayload {
+  kind?: "task";
   entry: TaskCompanionEntry;
   direction: ToastDirection;
   language: Language;
   openAction: TaskOpenAction;
 }
 
-export type TaskToastActionPayload = {
-  type: "open" | "acknowledge" | "postpone";
-  threadId: string;
-};
+export interface TaskPermissionToastDisplayPayload {
+  kind: "permission";
+  direction: ToastDirection;
+  language: Language;
+}
 
-export interface TaskToastShowRequest {
+export type TaskToastDisplayPayload =
+  | TaskStatusToastDisplayPayload
+  | TaskPermissionToastDisplayPayload;
+
+export type TaskToastActionPayload =
+  | {
+    type: "open" | "acknowledge" | "postpone";
+    threadId: string;
+  }
+  | {
+    type: "setStackExpanded";
+    expanded: boolean;
+  }
+  | {
+    type: "enableTaskNotifications" | "dismissTaskNotifications";
+  };
+
+export interface TaskStatusToastShowRequest {
+  kind?: "task";
   entry: TaskCompanionEntry;
   language: Language;
   openAction: TaskOpenAction;
 }
+
+export interface TaskPermissionToastShowRequest {
+  kind: "permission";
+  language: Language;
+}
+
+export type TaskToastShowRequest =
+  | TaskStatusToastShowRequest
+  | TaskPermissionToastShowRequest;
 
 export interface TaskToastNativeState {
   orbPosition: Point;

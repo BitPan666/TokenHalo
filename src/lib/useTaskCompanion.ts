@@ -11,13 +11,13 @@ import {
   createTaskCompanionState,
   selectTaskCompanionDisplay,
   taskCompanionReducer,
-  taskToastDurationMs,
   type TaskCompanionEvent,
 } from "./taskCompanion";
 import type {
   TaskToastActionPayload,
   TaskToastShowRequest,
 } from "./taskToastWindow";
+import { useTaskToastTimers } from "./useTaskToastTimers";
 
 export type TaskOpenResult = "openedTask" | "openedApp" | "unavailable";
 
@@ -52,6 +52,7 @@ export function useTaskCompanion({
 }: UseTaskCompanionOptions) {
   const [state, dispatch] = useReducer(taskCompanionReducer, undefined, createTaskCompanionState);
   const [clock, setClock] = useState(() => Date.now());
+  const [stackExpanded, setStackExpanded] = useState(false);
   const stateRef = useRef(state);
   stateRef.current = state;
   const display = useMemo(
@@ -66,6 +67,15 @@ export function useTaskCompanion({
     void Promise.all([
       bridge.listenEvents((event) => dispatch({ type: "event", event, nowMs: Date.now() })),
       bridge.listenActions((action) => {
+        if (action.type === "setStackExpanded") {
+          setStackExpanded(action.expanded);
+          return;
+        }
+        if (
+          action.type === "enableTaskNotifications"
+          || action.type === "dismissTaskNotifications"
+        ) return;
+        if (!("threadId" in action)) return;
         const nowMs = Date.now();
         if (action.type === "postpone") {
           dispatch({ type: "postpone", threadId: action.threadId, nowMs });
@@ -102,29 +112,33 @@ export function useTaskCompanion({
     return () => window.clearTimeout(timer);
   }, [clock, state.entries]);
 
+  useTaskToastTimers({
+    entries: display.visible,
+    paused: stackExpanded,
+    onExpire: (threadId) => {
+      dispatch({ type: "expireToast", threadId, nowMs: Date.now() });
+    },
+  });
+
   useEffect(() => {
     if (bridge === defaultBridge && !("__TAURI_INTERNALS__" in window)) return;
     const selected = display.selected;
     if (!selected) {
+      if (stackExpanded) setStackExpanded(false);
       void bridge.hide();
       return;
     }
 
     const ordinary = selected.event.status === "working" || selected.event.status === "completed";
-    const visible = compact && !(codexForeground && ordinary);
+    const preview = selected.event.source === "simulator";
+    const visible = preview || (compact && !(codexForeground && ordinary));
     if (visible) {
       void bridge.show({ entry: selected, language, openAction: "app" });
     } else {
       void bridge.hide();
     }
 
-    const duration = taskToastDurationMs(selected.event.status);
-    if (duration === null) return;
-    const timer = window.setTimeout(() => {
-      dispatch({ type: "expireToast", threadId: selected.event.threadId, nowMs: Date.now() });
-    }, duration);
-    return () => window.clearTimeout(timer);
-  }, [bridge, codexForeground, compact, display.selected, language]);
+  }, [bridge, codexForeground, compact, display.selected, language, stackExpanded]);
 
   useEffect(() => {
     if (compact) return;
