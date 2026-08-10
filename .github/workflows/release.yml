@@ -47,6 +47,9 @@ jobs:
           if (($versions | Select-Object -Unique).Count -ne 1) {
             throw "package.json, tauri.conf.json, and Cargo.toml versions must match."
           }
+          if ($package.version -match '-' -and $package.version -notmatch '^\d+\.\d+\.\d+-\d+$') {
+            throw "Pre-release versions must use a numeric identifier so the Windows MSI bundle can be created."
+          }
           $expectedTag = "v$($package.version)"
           if ($env:GITHUB_REF_NAME -ne $expectedTag) {
             throw "Release tag '$env:GITHUB_REF_NAME' does not match app version '$expectedTag'."

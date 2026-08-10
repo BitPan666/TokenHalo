@@ -234,7 +234,7 @@ describe("AppearanceSheet", () => {
       .not.toBeInTheDocument();
     expect(screen.getByText("数据来源与准确性")).toBeInTheDocument();
     expect(screen.getByText("版本与更新")).toBeInTheDocument();
-    expect(screen.getByText("当前版本 v0.1.7-beta.1")).toBeInTheDocument();
+    expect(screen.getByText("当前版本 v0.1.7-2")).toBeInTheDocument();
     expect(screen.getByText("尚未检查更新")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "检查更新" }))
       .toBeEnabled();
@@ -298,7 +298,7 @@ describe("AppearanceSheet", () => {
         ["data title", screen.getByText("数据来源与准确性"), "11px"],
         ["data copy", screen.getByText(/仅统计本机可读取的 Codex 日志/), "10px"],
         ["version title", screen.getByText("版本与更新"), "11px"],
-        ["current version", screen.getByText("当前版本 v0.1.7-beta.1"), "10px"],
+        ["current version", screen.getByText("当前版本 v0.1.7-2"), "10px"],
         ["update status", screen.getByRole("status"), "10px"],
         [
           "GitHub note",
