@@ -47,7 +47,6 @@ interface UseTaskCompanionOptions {
 export function useTaskCompanion({
   compact,
   language,
-  codexForeground,
   bridge = defaultBridge,
 }: UseTaskCompanionOptions) {
   const [state, dispatch] = useReducer(taskCompanionReducer, undefined, createTaskCompanionState);
@@ -61,10 +60,8 @@ export function useTaskCompanion({
   );
   const toastEntries = useMemo(() => display.visible.filter((entry) => {
     if (entry.event.source === "simulator") return true;
-    if (!compact) return false;
-    const ordinary = entry.event.status === "working" || entry.event.status === "completed";
-    return !(codexForeground && ordinary);
-  }), [codexForeground, compact, display.visible]);
+    return compact;
+  }), [compact, display.visible]);
 
   useEffect(() => {
     if (bridge === defaultBridge && !("__TAURI_INTERNALS__" in window)) return;

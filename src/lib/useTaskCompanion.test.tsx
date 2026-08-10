@@ -171,20 +171,18 @@ describe("useTaskCompanion", () => {
     expect(fake.bridge.show).toHaveBeenCalledTimes(2);
   });
 
-  it("suppresses ordinary capsules in Codex foreground but preserves attention", async () => {
+  it("shows an ordinary capsule while Codex is in the foreground", async () => {
     const fake = fakeBridge();
-    const { rerender } = renderHook(
-      ({ foreground }) => useTaskCompanion({ compact: true, language: "en", codexForeground: foreground, bridge: fake.bridge }),
-      { initialProps: { foreground: true } },
-    );
+    renderHook(() => useTaskCompanion({
+      compact: true,
+      language: "en",
+      codexForeground: true,
+      bridge: fake.bridge,
+    }));
     await act(async () => undefined);
 
     act(() => fake.emit(event("working", 0, "sessionObserver")));
-    expect(fake.bridge.show).not.toHaveBeenCalled();
-    act(() => fake.emit(event("needsInput", 1)));
     await waitFor(() => expect(fake.bridge.show).toHaveBeenCalledOnce());
-
-    rerender({ foreground: false });
   });
 
   it("shows a test preview even while the widget is expanded and Codex is foreground", async () => {

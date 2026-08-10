@@ -66,6 +66,7 @@ jobs:
             ## Experience build
 
             - Adds the pet-style multi-task capsule stack beside the floating orb.
+            - Shows task capsules while Codex is in the foreground, so active and completed tasks remain visible during normal use.
             - Hover, click, or focus the stack to expand up to three tasks; move away to collapse it again.
             - Each card keeps its own actions, which appear only while that card is hovered or focused.
             - Task reminders stay on this computer and do not upload conversations, code, or project files.
