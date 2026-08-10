@@ -26,6 +26,19 @@ export interface TaskToastPlacement {
   visibleArea: number;
 }
 
+export type TaskToastStackGrowth = "up" | "down";
+
+export interface TaskToastStackPlacementInput extends TaskToastPlacementInput {
+  anchorSize: Size;
+  direction: ToastDirection;
+}
+
+export interface TaskToastStackPlacement extends TaskToastPlacement {
+  growth: TaskToastStackGrowth;
+  anchorPosition: Point;
+  fits: boolean;
+}
+
 interface Candidate {
   direction: ToastDirection;
   frame: Rect;
@@ -141,5 +154,73 @@ export function planTaskToastPlacement(input: TaskToastPlacementInput): TaskToas
     position: { x: frame.x, y: frame.y },
     frame,
     visibleArea: selected.visibleArea,
+  };
+}
+
+export function planTaskToastStackPlacement(
+  input: TaskToastStackPlacementInput,
+): TaskToastStackPlacement {
+  const { direction, orbFrame, toastSize, anchorSize, workArea, gap } = input;
+  const anchorY = orbFrame.y + (orbFrame.height - anchorSize.height) / 2;
+  const spaceAbove = anchorY - workArea.y;
+  const spaceBelow = workArea.y + workArea.height - (anchorY + anchorSize.height);
+  const growth: TaskToastStackGrowth = direction === "top"
+    ? "up"
+    : direction === "bottom"
+      ? "down"
+      : spaceAbove > spaceBelow ? "up" : "down";
+
+  let rawFrame: Rect;
+  if (direction === "top") {
+    rawFrame = {
+      x: orbFrame.x + (orbFrame.width - toastSize.width) / 2,
+      y: orbFrame.y - gap - toastSize.height,
+      ...toastSize,
+    };
+  } else if (direction === "bottom") {
+    rawFrame = {
+      x: orbFrame.x + (orbFrame.width - toastSize.width) / 2,
+      y: orbFrame.y + orbFrame.height + gap,
+      ...toastSize,
+    };
+  } else {
+    rawFrame = {
+      x: direction === "left"
+        ? orbFrame.x - gap - toastSize.width
+        : orbFrame.x + orbFrame.width + gap,
+      y: growth === "up"
+        ? anchorY - (toastSize.height - anchorSize.height)
+        : anchorY,
+      ...toastSize,
+    };
+  }
+
+  const workAreaRight = workArea.x + workArea.width;
+  const workAreaBottom = workArea.y + workArea.height;
+  const verticalFits = rawFrame.y >= workArea.y
+    && rawFrame.y + rawFrame.height <= workAreaBottom;
+  const horizontalFits = rawFrame.x >= workArea.x
+    && rawFrame.x + rawFrame.width <= workAreaRight;
+  const fits = direction === "top" || direction === "bottom"
+    ? verticalFits && toastSize.width <= workArea.width
+    : horizontalFits && verticalFits;
+  const frame = direction === "top" || direction === "bottom"
+    ? { ...rawFrame, x: clamp(rawFrame.x, workArea.x, workAreaRight - rawFrame.width) }
+    : fits ? rawFrame : clampFrame(rawFrame, workArea);
+  const anchorPosition = {
+    x: frame.x,
+    y: growth === "up"
+      ? frame.y + frame.height - anchorSize.height
+      : frame.y,
+  };
+
+  return {
+    direction,
+    growth,
+    position: { x: frame.x, y: frame.y },
+    frame,
+    anchorPosition,
+    fits,
+    visibleArea: areaVisibleInside(rawFrame, workArea),
   };
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   planTaskToastPlacement,
+  planTaskToastStackPlacement,
   type TaskToastPlacementInput,
 } from "./taskToastPlacement";
 
@@ -15,6 +16,41 @@ function input(
 }
 
 describe("planTaskToastPlacement", () => {
+  it("keeps the top anchor card fixed while the stack grows upward", () => {
+    const single = planTaskToastStackPlacement({
+      ...input({ x: 670, y: 400, width: 100, height: 100 }, { gap: 8 }),
+      anchorSize: toastSize,
+      direction: "top",
+    });
+    const expanded = planTaskToastStackPlacement({
+      ...input({ x: 670, y: 400, width: 100, height: 100 }, { gap: 8 }),
+      toastSize: { width: 260, height: 304 },
+      anchorSize: toastSize,
+      direction: "top",
+    });
+
+    expect(single.growth).toBe("up");
+    expect(expanded.growth).toBe("up");
+    expect(single.anchorPosition).toEqual({ x: 590, y: 296 });
+    expect(expanded.anchorPosition).toEqual(single.anchorPosition);
+    expect(expanded.position).toEqual({ x: 590, y: 88 });
+    expect(expanded.fits).toBe(true);
+  });
+
+  it("grows a side stack toward the larger vertical work area", () => {
+    const result = planTaskToastStackPlacement({
+      ...input({ x: 1_200, y: 600, width: 100, height: 100 }),
+      toastSize: { width: 260, height: 304 },
+      anchorSize: toastSize,
+      direction: "left",
+    });
+
+    expect(result.growth).toBe("up");
+    expect(result.anchorPosition.y).toBe(602);
+    expect(result.position).toEqual({ x: 928, y: 394 });
+    expect(result.fits).toBe(true);
+  });
+
   it("chooses top whenever the full top capsule fits", () => {
     const result = planTaskToastPlacement(input({ x: 670, y: 400, width: 100, height: 100 }));
 

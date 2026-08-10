@@ -83,7 +83,7 @@ fn widget_allows_setting_window_position() {
 }
 
 #[test]
-fn task_toast_is_hidden_focus_safe_and_fixed_size() {
+fn task_toast_is_hidden_focus_safe_and_allows_stack_height() {
     let config: Value = serde_json::from_str(include_str!("../tauri.conf.json"))
         .expect("tauri.conf.json must be valid JSON");
     let toast = config["app"]["windows"]
@@ -94,6 +94,10 @@ fn task_toast_is_hidden_focus_safe_and_fixed_size() {
     assert_eq!(toast["url"], "index.html?surface=task-toast");
     assert_eq!(toast["width"], 260);
     assert_eq!(toast["height"], 96);
+    assert_eq!(toast["minWidth"], 260);
+    assert_eq!(toast["maxWidth"], 260);
+    assert_eq!(toast["minHeight"], 96);
+    assert_eq!(toast["maxHeight"], 400);
     assert_eq!(toast["visible"], false);
     assert_eq!(toast["focus"], false);
     assert_eq!(toast["resizable"], false);
