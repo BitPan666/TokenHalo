@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 // @ts-expect-error Vitest executes this test in Node; the app does not ship Node types.
 import { resolve } from "node:path";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -31,14 +32,35 @@ const preferences: WidgetPreferences = {
 };
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   document.querySelectorAll("style[data-appearance-sheet-test-style]")
     .forEach((style) => style.remove());
 });
 
 describe("AppearanceSheet", () => {
-  it("connects the Codex companion with honest trust status and a test action", async () => {
-    const onConnectTaskCompanion = vi.fn().mockResolvedValue({ state: "needsTrust" });
+  it("can open directly on Codex task reminder settings", async () => {
+    render(
+      <AppearanceSheet
+        preferences={preferences}
+        initialSection="companion"
+        onPreview={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onClose={vi.fn()}
+        onGetTaskCompanionConnection={vi.fn().mockResolvedValue({ state: "disconnected" })}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: "Codex 任务提醒" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(await screen.findByRole("heading", { name: "开启 Codex 任务提醒" }))
+      .toBeInTheDocument();
+  });
+
+  it("guides users through local-only Codex task notification setup", async () => {
+    const onConnectTaskCompanion = vi.fn().mockResolvedValue({ state: "connected" });
     const onTestTaskCompanion = vi.fn().mockResolvedValue(undefined);
     render(
       <AppearanceSheet
@@ -52,14 +74,140 @@ describe("AppearanceSheet", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: "Codex 伴侣" }));
-    expect(await screen.findByText("尚未连接")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "连接 Codex" }));
-    expect(await screen.findByText("等待在 Codex 中信任 Hook"))
+    fireEvent.click(screen.getByRole("tab", { name: "Codex 任务提醒" }));
+    expect(await screen.findByText("任务提醒未开启")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "开启 Codex 任务提醒" }))
       .toBeInTheDocument();
-    expect(screen.getByText(/\/hooks/)).toBeInTheDocument();
+    expect(screen.getByText("不会上传任何对话、代码或项目文件"))
+      .toBeInTheDocument();
+    expect(screen.getByText("只在本机识别任务名称与开始、等待处理、完成和失败等状态"))
+      .toBeInTheDocument();
+    expect(screen.getByText("数据只在你的电脑本机使用，可随时一键关闭"))
+      .toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "开始设置" }));
+
+    expect(await screen.findByText("任务提醒已开启"))
+      .toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "发送测试通知" }));
+    await waitFor(() => expect(onConnectTaskCompanion).toHaveBeenCalledOnce());
     await waitFor(() => expect(onTestTaskCompanion).toHaveBeenCalledOnce());
+  });
+
+  it("waits for the widget to collapse before sending a task notification preview", async () => {
+    let finishCollapse: () => void = () => undefined;
+    const collapse = new Promise<void>((resolve) => {
+      finishCollapse = resolve;
+    });
+    const onPrepareTaskCompanionTest = vi.fn(() => collapse);
+    const onTestTaskCompanion = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AppearanceSheet
+        preferences={preferences}
+        initialSection="companion"
+        onPreview={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onClose={vi.fn()}
+        onGetTaskCompanionConnection={vi.fn().mockResolvedValue({ state: "connected" })}
+        onPrepareTaskCompanionTest={onPrepareTaskCompanionTest}
+        onTestTaskCompanion={onTestTaskCompanion}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "发送测试通知" }));
+
+    await waitFor(() => expect(onPrepareTaskCompanionTest).toHaveBeenCalledOnce());
+    expect(onTestTaskCompanion).not.toHaveBeenCalled();
+
+    finishCollapse();
+    await waitFor(() => expect(onTestTaskCompanion).toHaveBeenCalledOnce());
+  });
+
+  it("stops task notifications in one click and offers an eight-second undo", async () => {
+    vi.useFakeTimers();
+    const onDisconnectTaskCompanion = vi.fn().mockResolvedValue({ state: "disconnected" });
+    const onConnectTaskCompanion = vi.fn().mockResolvedValue({ state: "connected" });
+    render(
+      <AppearanceSheet
+        preferences={preferences}
+        onPreview={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onClose={vi.fn()}
+        onGetTaskCompanionConnection={vi.fn().mockResolvedValue({ state: "connected" })}
+        onConnectTaskCompanion={onConnectTaskCompanion}
+        onDisconnectTaskCompanion={onDisconnectTaskCompanion}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Codex 任务提醒" }));
+    await act(async () => Promise.resolve());
+    expect(screen.getByText("任务提醒已开启")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "一键关闭" }));
+    await act(async () => Promise.resolve());
+    expect(screen.getByText("任务提醒已关闭"))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "撤销" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "撤销" }));
+    await act(async () => Promise.resolve());
+    expect(screen.getByText("任务提醒已开启")).toBeInTheDocument();
+    expect(onConnectTaskCompanion).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: "一键关闭" }));
+    await act(async () => Promise.resolve());
+    expect(screen.getByRole("button", { name: "撤销" })).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(8_000);
+    });
+    expect(screen.queryByRole("button", { name: "撤销" })).not.toBeInTheDocument();
+  });
+
+  it("treats a legacy pending state as setup instead of asking for a command", async () => {
+    render(
+      <AppearanceSheet
+        preferences={preferences}
+        onPreview={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onClose={vi.fn()}
+        onGetTaskCompanionConnection={vi.fn().mockResolvedValue({ state: "needsTrust" })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Codex 任务提醒" }));
+    await act(async () => Promise.resolve());
+    expect(screen.getByText("任务提醒未开启")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "开始设置" })).toBeInTheDocument();
+  });
+
+  it("splits the two secondary task actions evenly across the bottom row", async () => {
+    const style = document.createElement("style");
+    style.dataset.appearanceSheetTestStyle = "true";
+    style.textContent = readFileSync(
+      resolve(process.cwd(), "src/styles.css"),
+      "utf8",
+    );
+    document.head.append(style);
+    render(
+      <AppearanceSheet
+        preferences={preferences}
+        onPreview={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onClose={vi.fn()}
+        onGetTaskCompanionConnection={vi.fn().mockResolvedValue({ state: "connected" })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Codex 任务提醒" }));
+    const closeButton = await screen.findByRole("button", { name: "一键关闭" });
+    const actions = closeButton.parentElement as HTMLElement;
+    const testButton = screen.getByRole("button", { name: "发送测试通知" });
+
+    expect(getComputedStyle(actions).display).toBe("grid");
+    expect(getComputedStyle(actions).gridTemplateColumns)
+      .toBe("repeat(2, minmax(0, 1fr))");
+    expect(getComputedStyle(closeButton).width).toBe("100%");
+    expect(getComputedStyle(testButton).width).toBe("100%");
   });
 
   it("switches from appearance controls to local data and version information", () => {

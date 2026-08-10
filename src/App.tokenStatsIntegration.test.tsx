@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => ({
   testTaskCompanionNotification: vi.fn(),
   fetchTokenStats: vi.fn(),
   useTaskCompanion: vi.fn(),
+  useTaskNotificationOnboarding: vi.fn(),
 }));
 
 vi.mock("./lib/bridge", () => ({
@@ -60,6 +61,10 @@ vi.mock("./lib/tokenStats", () => ({
 
 vi.mock("./lib/useTaskCompanion", () => ({
   useTaskCompanion: mocks.useTaskCompanion,
+}));
+
+vi.mock("./lib/useTaskNotificationOnboarding", () => ({
+  useTaskNotificationOnboarding: mocks.useTaskNotificationOnboarding,
 }));
 
 import App from "./App";

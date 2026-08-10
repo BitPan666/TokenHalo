@@ -46,8 +46,8 @@ struct AppState {
     fetch_lock: tokio::sync::Mutex<()>,
     snapshot_cache: Mutex<Option<(Instant, Vec<ProviderSnapshot>)>>,
     token_stats: token_stats::TokenStatsService,
-    task_inbox_path: PathBuf,
     task_health_path: PathBuf,
+    task_enabled_path: PathBuf,
     codex_hooks_path: PathBuf,
 }
 
@@ -554,11 +554,10 @@ fn open_release_page() -> Result<(), String> {
 
 fn task_connection_status(state: &AppState) -> task_companion::models::ConnectionStatus {
     use task_companion::models::{ConnectionState, ConnectionStatus};
-    let connection = match task_companion::integration::is_installed(&state.codex_hooks_path) {
-        Ok(false) => ConnectionState::Disconnected,
-        Ok(true) if state.task_health_path.exists() => ConnectionState::Connected,
-        Ok(true) => ConnectionState::NeedsTrust,
-        Err(_) => ConnectionState::Degraded,
+    let connection = if state.task_enabled_path.exists() {
+        ConnectionState::Connected
+    } else {
+        ConnectionState::Disconnected
     };
     ConnectionStatus { state: connection }
 }
@@ -579,13 +578,15 @@ fn get_codex_foreground() -> Option<bool> {
 fn connect_task_companion(
     state: State<'_, AppState>,
 ) -> Result<task_companion::models::ConnectionStatus, String> {
-    let executable =
-        std::env::current_exe().map_err(|_| "failed to locate TokenHalo executable".to_string())?;
-    task_companion::integration::install(
-        &state.codex_hooks_path,
-        &executable,
-        &state.task_inbox_path,
-    )?;
+    if task_companion::integration::is_installed(&state.codex_hooks_path).unwrap_or(false) {
+        let _ = task_companion::integration::uninstall(&state.codex_hooks_path);
+    }
+    if let Some(parent) = state.task_enabled_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|_| "failed to create task companion settings".to_string())?;
+    }
+    fs::write(&state.task_enabled_path, b"enabled")
+        .map_err(|_| "failed to enable task companion".to_string())?;
     let _ = fs::remove_file(&state.task_health_path);
     Ok(task_connection_status(&state))
 }
@@ -594,7 +595,10 @@ fn connect_task_companion(
 fn disconnect_task_companion(
     state: State<'_, AppState>,
 ) -> Result<task_companion::models::ConnectionStatus, String> {
-    task_companion::integration::uninstall(&state.codex_hooks_path)?;
+    let _ = fs::remove_file(&state.task_enabled_path);
+    if task_companion::integration::is_installed(&state.codex_hooks_path).unwrap_or(false) {
+        let _ = task_companion::integration::uninstall(&state.codex_hooks_path);
+    }
     let _ = fs::remove_file(&state.task_health_path);
     Ok(task_connection_status(&state))
 }
@@ -816,10 +820,19 @@ pub fn run() {
             );
             let task_inbox_path = data_dir.join("task-companion").join("inbox");
             let task_health_path = data_dir.join("task-companion").join("last-seen");
+            let task_enabled_path = data_dir.join("task-companion").join("enabled");
             let codex_hooks_path = dirs::home_dir()
                 .unwrap_or_else(|| data_dir.clone())
                 .join(".codex")
                 .join("hooks.json");
+            if task_companion::integration::is_installed(&codex_hooks_path).unwrap_or(false)
+                && task_companion::integration::uninstall(&codex_hooks_path).is_ok()
+            {
+                if let Some(parent) = task_enabled_path.parent() {
+                    let _ = fs::create_dir_all(parent);
+                }
+                let _ = fs::write(&task_enabled_path, b"enabled");
+            }
             let preferences = load_preferences(&preferences_path);
             #[cfg(target_os = "macos")]
             apply_glass(app.handle(), &preferences);
@@ -837,8 +850,8 @@ pub fn run() {
                 fetch_lock: tokio::sync::Mutex::new(()),
                 snapshot_cache: Mutex::new(None),
                 token_stats,
-                task_inbox_path: task_inbox_path.clone(),
                 task_health_path: task_health_path.clone(),
+                task_enabled_path: task_enabled_path.clone(),
                 codex_hooks_path,
             });
             task_companion::start_watcher(
@@ -846,6 +859,7 @@ pub fn run() {
                 task_inbox_path,
                 task_health_path,
                 sessions_root,
+                task_enabled_path,
             );
             if setup_tray(app).is_err() {
                 eprintln!("tray setup failed; enabling taskbar fallback");

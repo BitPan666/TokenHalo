@@ -98,7 +98,9 @@ pub fn drain_batch(directory: &Path, sessions_root: &Path) -> Result<DrainBatch,
     for path in inbox_paths(directory)? {
         if let Some(record) = read_record(&path) {
             if record.status == HookSignal::Health {
-                batch.health_observed = true;
+                if normalize_record(record).is_ok() {
+                    batch.health_observed = true;
+                }
             } else {
                 let outcome = if record.status == HookSignal::TerminalCandidate {
                     super::reconcile::resolve_explicit_outcome(sessions_root, &record.thread_id)
@@ -106,6 +108,7 @@ pub fn drain_batch(directory: &Path, sessions_root: &Path) -> Result<DrainBatch,
                     None
                 };
                 if let Ok(Some(event)) = normalize_record_with_outcome(record, outcome) {
+                    batch.health_observed = true;
                     batch.events.push(event);
                 }
             }
@@ -183,6 +186,21 @@ mod tests {
         let batch = drain_batch(directory.path(), sessions.path()).unwrap();
         assert!(batch.health_observed);
         assert!(batch.events.is_empty());
+    }
+
+    #[test]
+    fn treats_a_real_hook_event_as_connection_health() {
+        let directory = tempfile::tempdir().unwrap();
+        let sessions = tempfile::tempdir().unwrap();
+        std::fs::write(
+            directory.path().join("working.json"),
+            serde_json::to_vec(&record(HookSignal::Working)).unwrap(),
+        )
+        .unwrap();
+
+        let batch = drain_batch(directory.path(), sessions.path()).unwrap();
+        assert!(batch.health_observed);
+        assert_eq!(batch.events.len(), 1);
     }
 
     #[test]

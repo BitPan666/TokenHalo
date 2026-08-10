@@ -26,6 +26,7 @@ interface GlassValues {
 
 interface Props {
   preferences: WidgetPreferences;
+  initialSection?: AppearanceSection;
   onPreview: (preferences: WidgetPreferences) => void;
   onSave: (preferences: WidgetPreferences) => Promise<void>;
   onClose: () => void;
@@ -35,8 +36,11 @@ interface Props {
   onGetTaskCompanionConnection?: () => Promise<TaskCompanionConnectionStatus>;
   onConnectTaskCompanion?: () => Promise<TaskCompanionConnectionStatus>;
   onDisconnectTaskCompanion?: () => Promise<TaskCompanionConnectionStatus>;
+  onPrepareTaskCompanionTest?: () => Promise<void>;
   onTestTaskCompanion?: () => Promise<void>;
 }
+
+export type AppearanceSection = "appearance" | "companion" | "about";
 
 interface ActiveGesture {
   pointerId: number | undefined;
@@ -79,6 +83,7 @@ function effectStrength(value: number): 20 | 40 | 60 {
 
 export function AppearanceSheet({
   preferences,
+  initialSection = "appearance",
   onPreview,
   onSave,
   onClose,
@@ -88,14 +93,13 @@ export function AppearanceSheet({
   onGetTaskCompanionConnection = getTaskCompanionConnection,
   onConnectTaskCompanion = connectTaskCompanion,
   onDisconnectTaskCompanion = disconnectTaskCompanion,
+  onPrepareTaskCompanionTest = async () => undefined,
   onTestTaskCompanion = testTaskCompanionNotification,
 }: Props) {
   const language = normalizeLanguage(preferences.language);
   const t = copy[language];
   const [draft, setDraft] = useState(() => glassValues(preferences));
-  const [activeSection, setActiveSection] = useState<"appearance" | "companion" | "about">(
-    "appearance",
-  );
+  const [activeSection, setActiveSection] = useState<AppearanceSection>(initialSection);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>("idle");
@@ -104,6 +108,8 @@ export function AppearanceSheet({
   );
   const [taskConnection, setTaskConnection] = useState<TaskCompanionConnectionStatus | null>(null);
   const [taskBusy, setTaskBusy] = useState(false);
+  const [taskUndoAvailable, setTaskUndoAvailable] = useState(false);
+  const taskUndoTimerRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
   const preferencesRef = useRef(preferences);
   const savedRef = useRef(glassValues(preferences));
   const draftRef = useRef(draft);
@@ -237,6 +243,12 @@ export function AppearanceSheet({
     };
   }, []);
 
+  useEffect(() => () => {
+    if (taskUndoTimerRef.current !== null) {
+      globalThis.clearTimeout(taskUndoTimerRef.current);
+    }
+  }, []);
+
   const updateValue = (
     key: "glassTransparency" | "glassBlurStrength",
     value: number,
@@ -266,13 +278,23 @@ export function AppearanceSheet({
       .then(setTaskConnection)
       .catch(() => setTaskConnection({ state: "degraded" }));
   }, [activeSection, onGetTaskCompanionConnection, taskConnection]);
-  const taskStatusCopy = taskConnection?.state === "connected"
+
+  const taskState = taskConnection?.state === "needsTrust"
+    ? "disconnected"
+    : taskConnection?.state ?? "disconnected";
+  const taskStatusCopy = taskState === "connected"
     ? t.taskConnectionConnected
-    : taskConnection?.state === "needsTrust"
-      ? t.taskConnectionNeedsTrust
-      : taskConnection?.state === "degraded"
+    : taskState === "degraded"
         ? t.taskConnectionDegraded
         : t.taskConnectionDisconnected;
+  const taskPanelTitle = taskState === "connected"
+    ? t.taskConnectionTitle
+    : taskState === "degraded"
+        ? t.taskConnectionRepairTitle
+        : t.taskConnectionSetupTitle;
+  const taskPanelNote = taskState === "connected"
+    ? t.taskConnectionActiveNote
+    : t.taskConnectionNote;
   const changeTaskConnection = async (
     operation: () => Promise<TaskCompanionConnectionStatus>,
   ) => {
@@ -291,12 +313,46 @@ export function AppearanceSheet({
     if (taskBusy) return;
     setTaskBusy(true);
     try {
+      await onPrepareTaskCompanionTest();
       await onTestTaskCompanion();
     } catch {
-      // A failed preview does not change the hook connection state.
+      // A failed preview does not change the task connection state.
     } finally {
       setTaskBusy(false);
     }
+  };
+
+  const disableTaskNotifications = async () => {
+    if (taskBusy) return;
+    setTaskBusy(true);
+    try {
+      const next = await onDisconnectTaskCompanion();
+      setTaskConnection(next);
+      if (next.state === "disconnected") {
+        if (taskUndoTimerRef.current !== null) {
+          globalThis.clearTimeout(taskUndoTimerRef.current);
+        }
+        setTaskUndoAvailable(true);
+        taskUndoTimerRef.current = globalThis.setTimeout(() => {
+          taskUndoTimerRef.current = null;
+          setTaskUndoAvailable(false);
+        }, 8_000);
+      }
+    } catch {
+      setTaskConnection({ state: "degraded" });
+    } finally {
+      setTaskBusy(false);
+    }
+  };
+
+  const undoTaskDisable = async () => {
+    if (taskBusy) return;
+    if (taskUndoTimerRef.current !== null) {
+      globalThis.clearTimeout(taskUndoTimerRef.current);
+      taskUndoTimerRef.current = null;
+    }
+    setTaskUndoAvailable(false);
+    await changeTaskConnection(onConnectTaskCompanion);
   };
   const updateStatusCopy = updateStatus === "checking"
     ? t.appearanceUpdateChecking
@@ -576,13 +632,25 @@ export function AppearanceSheet({
           aria-labelledby="appearance-companion-tab"
         >
           <div className="appearance-companion-card">
-            <strong>{t.taskConnectionTitle}</strong>
+            <h3>{taskPanelTitle}</h3>
             <p className="appearance-companion-status" role="status">
               {taskStatusCopy}
             </p>
-            <p>{t.taskConnectionNote}</p>
+            <p>{taskPanelNote}</p>
+
+            {taskState === "disconnected" ? (
+              <div className="appearance-companion-privacy">
+                <strong>{t.taskPrivacyTitle}</strong>
+                <ul>
+                  <li>{t.taskPrivacyNoContent}</li>
+                  <li>{t.taskPrivacyStatesOnly}</li>
+                  <li>{t.taskPrivacyLocalOnly}</li>
+                </ul>
+              </div>
+            ) : null}
+
             <div className="appearance-companion-actions">
-              {taskConnection?.state === "disconnected" || taskConnection === null ? (
+              {taskState === "disconnected" ? (
                 <button
                   type="button"
                   disabled={controlsDisabled || taskBusy}
@@ -590,24 +658,44 @@ export function AppearanceSheet({
                 >
                   {t.taskConnect}
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={controlsDisabled || taskBusy}
-                  onClick={() => void changeTaskConnection(onDisconnectTaskCompanion)}
-                >
-                  {t.taskDisconnect}
-                </button>
-              )}
+              ) : null}
+              {taskState !== "disconnected" ? (
+                <>
+                  <button
+                    type="button"
+                    className="appearance-companion-danger"
+                    disabled={controlsDisabled || taskBusy}
+                    onClick={() => void disableTaskNotifications()}
+                  >
+                    {t.taskDisconnect}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={controlsDisabled || taskBusy}
+                    onClick={() => void sendTestNotification()}
+                  >
+                    {t.taskSendTest}
+                  </button>
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          {taskUndoAvailable ? (
+            <div className="appearance-companion-undo" role="status">
+              <div>
+                <strong>{t.taskDisabledTitle}</strong>
+                <p>{t.taskDisabledNote}</p>
+              </div>
               <button
                 type="button"
                 disabled={controlsDisabled || taskBusy}
-                onClick={() => void sendTestNotification()}
+                onClick={() => void undoTaskDisable()}
               >
-                {t.taskSendTest}
+                {t.taskUndo}
               </button>
             </div>
-          </div>
+          ) : null}
         </div>
       ) : (
         <div

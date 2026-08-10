@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QuotaCard, QuotaOrb } from "./components/QuotaCard";
 import { TokenStatsCard } from "./components/TokenStatsCard";
+import type { AppearanceSection } from "./components/AppearanceSheet";
 import { fetchSnapshots, getCodexForeground, getPreferences, listenDesktopEvents, setAlwaysOnTop, setWidgetMode, startDragging, updatePreferences } from "./lib/bridge";
 import { needsFastRefresh } from "./lib/format";
 import { copy, nextLanguage, normalizeLanguage } from "./lib/i18n";
 import { mergeSnapshots } from "./lib/snapshots";
 import { useTokenStats } from "./lib/useTokenStats";
 import { useTaskCompanion } from "./lib/useTaskCompanion";
+import { useTaskNotificationOnboarding } from "./lib/useTaskNotificationOnboarding";
 import type {
   ExpandedView,
   ProviderSnapshot,
@@ -64,6 +66,9 @@ export default function App() {
   const [preferenceMutationPending, setPreferenceMutationPending] = useState(false);
   const [quotaRefreshing, setQuotaRefreshing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<AppearanceSection>(
+    "appearance",
+  );
   const [codexForeground, setCodexForeground] = useState(false);
   const failures = useRef(0);
   const preferencesRef = useRef(preferences);
@@ -389,6 +394,7 @@ export default function App() {
   const openSettings = useCallback(() => {
     if (preferenceMutationPendingRef.current) return;
     setOperationNotice(null);
+    setSettingsInitialSection("appearance");
     setSettingsOpen(true);
   }, []);
 
@@ -549,6 +555,35 @@ export default function App() {
     })();
   }, [refresh]);
 
+  const prepareTaskCompanionTest = useCallback(async () => {
+    const generation = displayIntentRef.current.generation + 1;
+    displayIntentRef.current = { generation, compact: true };
+    setHovered(false);
+    setSettingsOpen(false);
+    setCompact(true);
+    try {
+      await setWidgetMode("compact");
+    } catch (error) {
+      if (displayIntentRef.current.generation === generation) {
+        displayIntentRef.current = { generation, compact: false };
+        setCompact(false);
+        setSettingsOpen(true);
+        setOperationNotice("widgetCollapseFailed");
+      }
+      throw error;
+    }
+  }, []);
+
+  useTaskNotificationOnboarding({
+    compact: preferencesReady && compact,
+    language,
+    onEnable: () => {
+      setSettingsInitialSection("companion");
+      handleHover(true);
+      setSettingsOpen(true);
+    },
+  });
+
   const saveAppearancePreferences = useCallback(async (
     next: WidgetPreferences,
   ) => {
@@ -653,8 +688,10 @@ export default function App() {
           onAlwaysOnTop={toggleAlwaysOnTop}
           onOpenSettings={openSettings}
           settingsOpen={settingsOpen}
+          settingsInitialSection={settingsInitialSection}
           onCloseSettings={() => setSettingsOpen(false)}
           onSavePreferences={saveAppearancePreferences}
+          onPrepareTaskCompanionTest={prepareTaskCompanionTest}
           onDrag={() => startDragging()}
           preferenceActionsDisabled={preferenceMutationPending}
         />
@@ -675,8 +712,10 @@ export default function App() {
       refreshing={quotaRefreshing}
       onOpenSettings={openSettings}
       settingsOpen={settingsOpen}
+      settingsInitialSection={settingsInitialSection}
       onCloseSettings={() => setSettingsOpen(false)}
       onSavePreferences={saveAppearancePreferences}
+      onPrepareTaskCompanionTest={prepareTaskCompanionTest}
       isConsuming={consumingProviders.has(current.provider)}
       notice={operationNotice ? t[operationNotice] : null}
       preferenceActionsDisabled={preferenceMutationPending}

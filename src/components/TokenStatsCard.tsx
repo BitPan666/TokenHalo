@@ -8,7 +8,7 @@ import {
   type MouseEvent,
 } from "react";
 import { copy, normalizeLanguage } from "../lib/i18n";
-import { AppearanceSheet } from "./AppearanceSheet";
+import { AppearanceSheet, type AppearanceSection } from "./AppearanceSheet";
 import { CardChrome } from "./CardChrome";
 import type {
   StatsGranularity,
@@ -33,8 +33,10 @@ interface Props {
   onAlwaysOnTop: () => void;
   onOpenSettings: () => void;
   settingsOpen?: boolean;
+  settingsInitialSection?: AppearanceSection;
   onCloseSettings?: () => void;
   onSavePreferences?: (preferences: WidgetPreferences) => Promise<void>;
+  onPrepareTaskCompanionTest?: () => Promise<void>;
   onDrag?: () => void;
   onHover?: (hovered: boolean) => void;
   preferenceActionsDisabled?: boolean;
@@ -147,8 +149,10 @@ export const TokenStatsCard = memo(function TokenStatsCard({
   onAlwaysOnTop,
   onOpenSettings,
   settingsOpen = false,
+  settingsInitialSection = "appearance",
   onCloseSettings = () => undefined,
   onSavePreferences = async () => undefined,
+  onPrepareTaskCompanionTest = async () => undefined,
   onDrag,
   onHover,
   preferenceActionsDisabled = false,
@@ -413,8 +417,10 @@ export const TokenStatsCard = memo(function TokenStatsCard({
       {settingsOpen ? (
         <AppearanceSheet
           preferences={preferences}
+          initialSection={settingsInitialSection}
           onPreview={setAppearancePreview}
           onSave={onSavePreferences}
+          onPrepareTaskCompanionTest={onPrepareTaskCompanionTest}
           onClose={() => {
             setAppearancePreview(null);
             onCloseSettings();

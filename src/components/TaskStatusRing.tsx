@@ -22,6 +22,7 @@ export function TaskStatusRing({
       role="status"
       aria-label={t.taskStatusLabel[status]}
     >
+      <span className="task-status-inset-glow" aria-hidden="true" />
       {attentionCount > 1 ? (
         <span
           className="task-status-badge"

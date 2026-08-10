@@ -2,6 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -33,6 +34,7 @@ const mocks = vi.hoisted(() => ({
   testTaskCompanionNotification: vi.fn(),
   useTokenStats: vi.fn(),
   useTaskCompanion: vi.fn(),
+  useTaskNotificationOnboarding: vi.fn(),
   statsRefresh: vi.fn(),
 }));
 
@@ -59,6 +61,10 @@ vi.mock("./lib/useTokenStats", () => ({
 
 vi.mock("./lib/useTaskCompanion", () => ({
   useTaskCompanion: mocks.useTaskCompanion,
+}));
+
+vi.mock("./lib/useTaskNotificationOnboarding", () => ({
+  useTaskNotificationOnboarding: mocks.useTaskNotificationOnboarding,
 }));
 
 import App from "./App";
@@ -190,6 +196,23 @@ describe("App page switching", () => {
       activeEntry: null,
       ingest: vi.fn(),
     });
+    mocks.useTaskNotificationOnboarding.mockReset();
+  });
+
+  it("opens the expanded settings directly on task reminders after first-use Enable", async () => {
+    setWindowSide(100);
+    let enable = () => undefined;
+    mocks.useTaskNotificationOnboarding.mockImplementation((options) => {
+      enable = options.onEnable;
+    });
+
+    render(<App />);
+    await screen.findByLabelText("5 小时额度剩余 74%");
+    act(() => enable());
+
+    expect(await screen.findByRole("tab", { name: "Codex 任务提醒" }))
+      .toHaveAttribute("aria-selected", "true");
+    expect(mocks.setWidgetMode).toHaveBeenCalledWith("quota");
   });
 
   it("passes task status into the compact orb without replacing quota", async () => {

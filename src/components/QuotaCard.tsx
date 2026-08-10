@@ -12,7 +12,7 @@ import { copy, normalizeLanguage } from "../lib/i18n";
 import { classifyUsagePeriod } from "../lib/usagePeriod";
 import type { TaskCompanionStatus } from "../lib/taskCompanion";
 import type { Language, ProviderSnapshot, WidgetPreferences } from "../types";
-import { AppearanceSheet } from "./AppearanceSheet";
+import { AppearanceSheet, type AppearanceSection } from "./AppearanceSheet";
 import { CardChrome } from "./CardChrome";
 import { ProviderMark } from "./ProviderMark";
 import { TaskStatusRing } from "./TaskStatusRing";
@@ -29,8 +29,10 @@ interface Props {
   refreshing?: boolean;
   onOpenSettings: () => void;
   settingsOpen?: boolean;
+  settingsInitialSection?: AppearanceSection;
   onCloseSettings?: () => void;
   onSavePreferences?: (preferences: WidgetPreferences) => Promise<void>;
+  onPrepareTaskCompanionTest?: () => Promise<void>;
   isConsuming?: boolean;
   notice?: string | null;
   initialShowCreditTip?: boolean;
@@ -76,8 +78,10 @@ export const QuotaCard = memo(function QuotaCard({
   refreshing = false,
   onOpenSettings,
   settingsOpen = false,
+  settingsInitialSection = "appearance",
   onCloseSettings = () => undefined,
   onSavePreferences = async () => undefined,
+  onPrepareTaskCompanionTest = async () => undefined,
   isConsuming = false,
   notice = null,
   initialShowCreditTip = false,
@@ -211,8 +215,10 @@ export const QuotaCard = memo(function QuotaCard({
       {settingsOpen ? (
         <AppearanceSheet
           preferences={preferences}
+          initialSection={settingsInitialSection}
           onPreview={setAppearancePreview}
           onSave={onSavePreferences}
+          onPrepareTaskCompanionTest={onPrepareTaskCompanionTest}
           onClose={() => {
             setAppearancePreview(null);
             onCloseSettings();
