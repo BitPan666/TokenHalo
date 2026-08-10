@@ -1,6 +1,6 @@
 export type TaskCompanionStatus = "working" | "needsInput" | "completed" | "failed";
 export type TaskCompanionEventStatus = TaskCompanionStatus | "interrupted";
-export type TaskCompanionSource = "codexHook" | "sessionReconciliation" | "simulator";
+export type TaskCompanionSource = "codexHook" | "sessionObserver" | "sessionReconciliation" | "simulator";
 
 export interface TaskCompanionEvent {
   schemaVersion: 1;
@@ -35,6 +35,8 @@ export type TaskCompanionAction =
 
 export interface TaskCompanionDisplay {
   selected: TaskCompanionEntry | null;
+  visible: TaskCompanionEntry[];
+  hiddenCount: number;
   ring: TaskCompanionEntry | null;
   unresolvedCount: number;
 }
@@ -172,7 +174,7 @@ export function selectTaskCompanionDisplay(
       !acknowledged && (event.status !== "completed" || !toastExpired)
     ))
     .sort(newestFirst)[0] ?? null;
-  const selected = entries
+  const eligible = entries
     .filter(({ event, acknowledged, postponedUntil, toastExpired }) => {
       if (acknowledged || toastExpired) return false;
       if (event.status === "needsInput" && postponedUntil !== null) {
@@ -180,9 +182,17 @@ export function selectTaskCompanionDisplay(
       }
       return true;
     })
-    .sort(newestFirst)[0] ?? null;
+    .sort(newestFirst);
+  const visible = eligible.slice(0, 3);
+  const selected = visible[0] ?? null;
 
-  return { selected, ring, unresolvedCount };
+  return {
+    selected,
+    visible,
+    hiddenCount: Math.max(0, eligible.length - visible.length),
+    ring,
+    unresolvedCount,
+  };
 }
 
 export function taskCompanionLabel(event: TaskCompanionEvent) {

@@ -45,6 +45,21 @@ function acceptAll(events: TaskCompanionEvent[]) {
 }
 
 describe("taskCompanionReducer", () => {
+  it("returns the three highest-priority visible tasks and the hidden count", () => {
+    const state = acceptAll([
+      event("working", "working", 4),
+      event("complete", "completed", 3),
+      event("failed", "failed", 2),
+      event("input", "needsInput", 1),
+    ]);
+
+    const display = selectTaskCompanionDisplay(state, BASE_TIME + 5_000);
+
+    expect(display.visible.map((entry) => entry.event.threadId))
+      .toEqual(["input", "failed", "complete"]);
+    expect(display.hiddenCount).toBe(1);
+  });
+
   it("prioritizes needs input over failed, completed, and working", () => {
     const state = acceptAll([
       event("working", "working", 4),
