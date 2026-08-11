@@ -7,6 +7,7 @@ mod macos_glass;
 mod macos_overlay;
 mod models;
 pub mod task_companion;
+mod task_toast_frame;
 mod token_stats;
 mod updates;
 
@@ -889,6 +890,8 @@ pub fn run() {
             connect_task_companion,
             disconnect_task_companion,
             emit_test_task_companion_event,
+            task_toast_frame::set_task_toast_frame,
+            task_toast_frame::show_task_toast_without_focus,
             open_codex_task
         ])
         .on_tray_icon_event(|app, event| {

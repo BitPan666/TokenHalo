@@ -166,7 +166,8 @@ async function getTaskToastWindowController(): Promise<TaskToastWindowController
     taskToastWindowControllerPromise = Promise.all([
       import("@tauri-apps/api/window"),
       import("@tauri-apps/api/event"),
-    ]).then(async ([api, eventApi]) => {
+      import("@tauri-apps/api/core"),
+    ]).then(async ([api, eventApi, coreApi]) => {
       const widget = await api.Window.getByLabel("widget");
       const toast = await api.Window.getByLabel("task-toast");
       if (!widget || !toast) throw new Error("task toast windows unavailable");
@@ -195,16 +196,14 @@ async function getTaskToastWindowController(): Promise<TaskToastWindowController
           };
         },
         async apply(request) {
-          await toast.setSize(new api.LogicalSize(
-            request.logicalSize.width,
-            request.logicalSize.height,
-          ));
-          await toast.setPosition(new api.PhysicalPosition(
-            request.physicalPosition.x,
-            request.physicalPosition.y,
-          ));
+          await coreApi.invoke("set_task_toast_frame", {
+            x: request.physicalPosition.x,
+            y: request.physicalPosition.y,
+            width: request.logicalSize.width,
+            height: request.logicalSize.height,
+          });
           await eventApi.emitTo("task-toast", "task-toast-display", request.payload);
-          await toast.show();
+          await coreApi.invoke("show_task_toast_without_focus");
         },
         async hide() {
           await eventApi.emitTo("task-toast", "task-toast-hide");
