@@ -925,12 +925,14 @@ button { font: inherit; }
 }
 
 .task-group-list {
-  max-height: 360px;
+  width: 272px;
+  max-height: 372px;
   display: grid;
   gap: 8px;
+  margin-top: -12px;
   overflow-y: auto;
-  padding-right: 3px;
-  border-radius: 20px;
+  padding: 12px 12px 0 0;
+  border-radius: 0;
   scrollbar-color: rgb(92 120 151 / .35) transparent;
   scrollbar-width: thin;
 }

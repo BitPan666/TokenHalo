@@ -1,11 +1,17 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
+// @ts-expect-error Vitest executes this test in Node; the app does not ship Node types.
+import { readFileSync } from "node:fs";
+// @ts-expect-error Vitest executes this test in Node; the app does not ship Node types.
+import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TaskCompanionEntry, TaskCompanionStatus } from "../lib/taskCompanion";
 import { groupTaskEntries } from "../lib/taskStatusGroups";
 import { TaskStatusGroupStack } from "./TaskStatusGroupStack";
+
+declare const process: { cwd: () => string };
 
 function entry(
   threadId: string,
@@ -143,6 +149,34 @@ describe("TaskStatusGroupStack", () => {
 
     expect(onOpen).toHaveBeenCalledWith("input-a");
     expect(onPostpone).toHaveBeenCalledWith("input-a");
+  });
+
+  it("reserves the full close-button overhang inside an expanded group", () => {
+    const style = document.createElement("style");
+    style.textContent = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+    document.head.append(style);
+
+    try {
+      render(<TaskStatusGroupStack {...props()} />);
+      const stack = screen.getByRole("group", { name: "4 种任务状态，9 个任务" });
+      fireEvent.mouseEnter(stack);
+      fireEvent.click(screen.getByRole("button", { name: "展开需要处理的 3 个任务" }));
+
+      const region = screen.getByRole("region", { name: "需要处理任务" });
+      const card = screen.getByRole("status", { name: "需要处理：确认安装权限" });
+      fireEvent.mouseEnter(card);
+      const closeButton = screen.getByRole("button", { name: "忽略任务：确认安装权限" });
+      const regionStyle = getComputedStyle(region);
+      const closeStyle = getComputedStyle(closeButton);
+
+      expect(closeStyle.top).toBe("-12px");
+      expect(closeStyle.right).toBe("-12px");
+      expect(regionStyle.paddingTop).toBe("12px");
+      expect(regionStyle.paddingRight).toBe("12px");
+      expect(regionStyle.width).toBe("272px");
+    } finally {
+      style.remove();
+    }
   });
 
   it("waits 160ms before collapsing the whole region", () => {
