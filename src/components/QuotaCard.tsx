@@ -273,6 +273,7 @@ export const QuotaOrb = memo(function QuotaOrb({
           status={taskStatus.status}
           attentionCount={taskStatus.attentionCount}
           language={activeLanguage}
+          showAttentionBadge={false}
         />
       ) : null}
       {available ? (

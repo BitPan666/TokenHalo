@@ -6,12 +6,14 @@ interface TaskStatusRingProps {
   status: TaskCompanionStatus;
   attentionCount: number;
   language?: Language;
+  showAttentionBadge?: boolean;
 }
 
 export function TaskStatusRing({
   status,
   attentionCount,
   language = "zh-CN",
+  showAttentionBadge = true,
 }: TaskStatusRingProps) {
   const t = copy[normalizeLanguage(language)];
   const cappedCount = attentionCount > 9 ? "9+" : String(attentionCount);
@@ -23,7 +25,7 @@ export function TaskStatusRing({
       aria-label={t.taskStatusLabel[status]}
     >
       <span className="task-status-inset-glow" aria-hidden="true" />
-      {attentionCount > 1 ? (
+      {showAttentionBadge && attentionCount > 1 ? (
         <span
           className="task-status-badge"
           aria-label={t.taskAttentionCount(attentionCount)}

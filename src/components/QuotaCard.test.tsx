@@ -447,7 +447,7 @@ describe("QuotaCard", () => {
     }
   });
 
-  it("adds the task ring and attention badge without replacing quota content", () => {
+  it("adds the task ring without a redundant orb badge or replacing quota content", () => {
     const { container } = render(
       <QuotaOrb
         snapshot={snapshot}
@@ -461,6 +461,6 @@ describe("QuotaCard", () => {
     expect(container.querySelector(".orb-metric")).toHaveTextContent("73%");
     expect(screen.getByRole("status", { name: "Codex 需要你的输入" }))
       .toHaveClass("task-status-ring--needsInput");
-    expect(screen.getByText("3")).toHaveAttribute("aria-label", "3 个任务需要处理");
+    expect(screen.queryByLabelText("3 个任务需要处理")).not.toBeInTheDocument();
   });
 });

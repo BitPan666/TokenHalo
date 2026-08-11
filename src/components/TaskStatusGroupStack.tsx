@@ -89,7 +89,7 @@ function GroupedTaskCard({
       role="status"
       aria-label={`${singleStatusLabel}：${title}`}
       data-compact={compact}
-      data-glass="strong-blur"
+      data-glass="extra-strong-blur"
       tabIndex={0}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
