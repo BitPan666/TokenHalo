@@ -71,6 +71,8 @@ describe("TaskStatusGroupStack", () => {
     expect(stack).toHaveAttribute("data-outer-expanded", "false");
     expect(screen.getAllByTestId("task-status-group")).toHaveLength(1);
     expect(screen.getByText("需要处理 · 3")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "需要处理：确认安装权限" }))
+      .toHaveAttribute("data-glass", "strong-blur");
     expect(screen.queryByText("执行失败 · 2")).not.toBeInTheDocument();
 
     fireEvent.mouseEnter(stack);

@@ -703,14 +703,14 @@ button { font: inherit; }
   border: 1px solid rgb(255 255 255 / .5);
   border-radius: 18px;
   background:
-    radial-gradient(circle at 18% 0%, rgb(255 255 255 / .46), transparent 42%),
-    linear-gradient(145deg, rgb(245 251 255 / .54), rgb(191 215 236 / .38)),
-    rgb(196 218 237 / .22);
+    radial-gradient(circle at 18% 0%, rgb(255 255 255 / .56), transparent 42%),
+    linear-gradient(145deg, rgb(245 251 255 / .66), rgb(191 215 236 / .5)),
+    rgb(196 218 237 / .32);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / .58),
     inset 0 -1px 0 rgb(79 108 139 / .07);
-  -webkit-backdrop-filter: blur(26px) saturate(1.28);
-  backdrop-filter: blur(26px) saturate(1.28);
+  -webkit-backdrop-filter: blur(36px) saturate(1.22);
+  backdrop-filter: blur(36px) saturate(1.22);
   pointer-events: none;
 }
 
@@ -746,14 +746,14 @@ button { font: inherit; }
   border-radius: 18px;
   color: #17253a;
   background:
-    radial-gradient(circle at 18% -8%, rgb(255 255 255 / .62), transparent 44%),
-    linear-gradient(145deg, rgb(247 252 255 / .64), rgb(204 226 244 / .46)),
-    rgb(190 214 234 / .24);
+    radial-gradient(circle at 18% -8%, rgb(255 255 255 / .7), transparent 44%),
+    linear-gradient(145deg, rgb(247 252 255 / .72), rgb(204 226 244 / .56)),
+    rgb(190 214 234 / .34);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / .76),
     inset 0 -1px 0 rgb(98 132 168 / .08);
-  -webkit-backdrop-filter: blur(28px) saturate(1.32) contrast(1.02);
-  backdrop-filter: blur(28px) saturate(1.32) contrast(1.02);
+  -webkit-backdrop-filter: blur(42px) saturate(1.24) contrast(1.02);
+  backdrop-filter: blur(42px) saturate(1.24) contrast(1.02);
 }
 
 .task-group-card--needsInput { --task-group-accent: #f0ae49; }
@@ -875,8 +875,8 @@ button { font: inherit; }
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / .78),
     0 2px 8px rgb(26 42 59 / .12);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.16);
+  backdrop-filter: blur(24px) saturate(1.16);
   cursor: pointer;
 }
 
