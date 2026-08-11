@@ -118,7 +118,7 @@ describe("TaskStatusGroupStack", () => {
 
     fireEvent.mouseEnter(card);
     const dismissButton = screen.getByRole("button", { name: "忽略任务：确认安装权限" });
-    expect(dismissButton).toHaveAttribute("data-placement", "top-left");
+    expect(dismissButton).toHaveAttribute("data-placement", "top-right");
     fireEvent.click(dismissButton);
 
     expect(onDismiss).toHaveBeenCalledWith("input-a");
@@ -134,7 +134,9 @@ describe("TaskStatusGroupStack", () => {
 
     expect(screen.queryByRole("button", { name: "前往 Codex" })).not.toBeInTheDocument();
     fireEvent.mouseEnter(card);
-    fireEvent.click(screen.getByRole("button", { name: "前往 Codex" }));
+    const openButton = screen.getByRole("button", { name: "前往 Codex" });
+    expect(openButton).toHaveAttribute("data-visual", "solid-top-highlight");
+    fireEvent.click(openButton);
     fireEvent.click(screen.getByRole("button", { name: "稍后提醒" }));
 
     expect(onOpen).toHaveBeenCalledWith("input-a");

@@ -119,7 +119,7 @@ function GroupedTaskCard({
           <button
             type="button"
             className="task-group-close"
-            data-placement="top-left"
+            data-placement="top-right"
             aria-label={copy.dismiss(title)}
             onMouseDown={stopAction}
             onClick={(event) => {
@@ -133,6 +133,7 @@ function GroupedTaskCard({
             <button
               type="button"
               className="task-group-primary"
+              data-visual="solid-top-highlight"
               onMouseDown={stopAction}
               onClick={(event) => {
                 event.stopPropagation();
