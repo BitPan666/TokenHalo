@@ -70,6 +70,21 @@ afterEach(() => {
 });
 
 describe("TaskStatusGroupStack", () => {
+  it("shows back layers when the collapsed card is hiding tasks from other statuses", () => {
+    const onePerStatus = entries.filter((item) => (
+      item.event.threadId === "input-a"
+      || item.event.threadId === "failed-a"
+      || item.event.threadId === "completed-a"
+      || item.event.threadId === "working-a"
+    ));
+    const { container } = render(
+      <TaskStatusGroupStack {...props({ groups: groupTaskEntries(onePerStatus) })} />,
+    );
+
+    expect(screen.getAllByTestId("task-status-group")).toHaveLength(1);
+    expect(container.querySelectorAll(".task-group-back")).toHaveLength(2);
+  });
+
   it("shows only the highest-priority group until the shared region is hovered", () => {
     render(<TaskStatusGroupStack {...props()} />);
     const stack = screen.getByRole("group", { name: "4 种任务状态，9 个任务" });

@@ -254,7 +254,10 @@ export function TaskStatusGroupStack({
       {visibleGroups.map((group) => {
         const innerExpanded = expandedStatus === group.status;
         const topEntry = group.entries[0];
-        const backCount = Math.min(2, Math.max(0, group.entries.length - 1));
+        const hiddenTaskCount = outerExpanded
+          ? group.entries.length - 1
+          : taskCount - 1;
+        const backCount = Math.min(2, Math.max(0, hiddenTaskCount));
         return (
           <section
             className={`task-status-group task-status-group--${group.status}`}
