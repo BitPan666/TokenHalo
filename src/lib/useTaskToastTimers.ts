@@ -12,6 +12,7 @@ interface UseTaskToastTimersOptions {
   entries: TaskCompanionEntry[];
   paused: boolean;
   onExpire: (threadId: string) => void;
+  durationForEntry?: (entry: TaskCompanionEntry) => number | null;
 }
 
 const COMPLETED_RETENTION_MS = 30_000;
@@ -31,10 +32,13 @@ export function useTaskToastTimers({
   entries,
   paused,
   onExpire,
+  durationForEntry,
 }: UseTaskToastTimersOptions) {
   const recordsRef = useRef(new Map<string, TaskToastTimerRecord>());
   const onExpireRef = useRef(onExpire);
+  const durationForEntryRef = useRef(durationForEntry);
   onExpireRef.current = onExpire;
+  durationForEntryRef.current = durationForEntry;
   const entryKey = entries.map(timerKey).join("\u0001");
 
   useEffect(() => {
@@ -50,7 +54,9 @@ export function useTaskToastTimers({
     for (const entry of entries) {
       const key = timerKey(entry);
       if (records.has(key)) continue;
-      const duration = timerDurationMs(entry);
+      const duration = durationForEntryRef.current
+        ? durationForEntryRef.current(entry)
+        : timerDurationMs(entry);
       if (duration === null) continue;
       records.set(key, {
         threadId: entry.event.threadId,

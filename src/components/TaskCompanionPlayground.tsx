@@ -1,15 +1,17 @@
-import { useMemo, useState } from "react";
-import type { ProviderSnapshot, Language } from "../types";
-import type { TaskCompanionEntry, TaskCompanionStatus } from "../lib/taskCompanion";
+import { useMemo, useRef, useState } from "react";
+import type { ProviderSnapshot } from "../types";
+import type {
+  TaskCompanionEntry,
+  TaskCompanionStatus,
+} from "../lib/taskCompanion";
+import { groupTaskEntries } from "../lib/taskStatusGroups";
 import type { ToastDirection } from "../lib/taskToastPlacement";
-import {
-  TASK_TOAST_GAP,
-  TASK_TOAST_SIZE,
-  taskToastStackSize,
-} from "../lib/taskToastWindow";
+import { useTaskToastTimers } from "../lib/useTaskToastTimers";
 import { QuotaOrb } from "./QuotaCard";
 import { TaskPermissionToast } from "./TaskPermissionToast";
-import { TaskToastStack } from "./TaskToastStack";
+import { TaskStatusGroupStack } from "./TaskStatusGroupStack";
+
+type PreviewScene = "single" | "all" | "sameStatus" | "permission";
 
 const previewSnapshot: ProviderSnapshot = {
   provider: "codex",
@@ -19,176 +21,175 @@ const previewSnapshot: ProviderSnapshot = {
   weeklyWindow: { remainingPercent: 42, resetsAt: null, windowSeconds: 604_800 },
   resetCredits: 1,
   resetCreditExpiresAt: [],
-  updatedAt: "2026-08-04T10:00:00.000Z",
+  updatedAt: "2026-08-11T10:00:00.000Z",
   status: "ok",
   message: null,
 };
 
-const statuses: Array<{ value: TaskCompanionStatus; label: string }> = [
-  { value: "working", label: "Working" },
-  { value: "needsInput", label: "Needs input" },
-  { value: "completed", label: "Completed" },
-  { value: "failed", label: "Failed" },
-];
-
 const directions: Array<{ value: ToastDirection; label: string }> = [
-  { value: "top", label: "Top" },
-  { value: "left", label: "Left" },
-  { value: "right", label: "Right" },
-  { value: "bottom", label: "Bottom" },
+  { value: "top", label: "上方" },
+  { value: "bottom", label: "下方" },
+  { value: "left", label: "左侧" },
+  { value: "right", label: "右侧" },
 ];
 
-const previewOrbSize = 100;
-
-function previewToastTransform(direction: ToastDirection, toastSize = TASK_TOAST_SIZE) {
-  const horizontalOffset = (previewOrbSize + toastSize.width) / 2 + TASK_TOAST_GAP;
-  const verticalOffset = (previewOrbSize + toastSize.height) / 2 + TASK_TOAST_GAP;
-  if (direction === "top") return `translate(0px, -${verticalOffset}px)`;
-  if (direction === "bottom") return `translate(0px, ${verticalOffset}px)`;
-  if (direction === "left") return `translate(-${horizontalOffset}px, 0px)`;
-  return `translate(${horizontalOffset}px, 0px)`;
-}
-
-export function TaskCompanionPlayground() {
-  const [status, setStatus] = useState<TaskCompanionStatus>("working");
-  const [direction, setDirection] = useState<ToastDirection>("top");
-  const [language, setLanguage] = useState<Language>("zh-CN");
-  const [permissionPreview, setPermissionPreview] = useState(false);
-  const [stackPreview, setStackPreview] = useState(false);
-  const [stackExpanded, setStackExpanded] = useState(false);
-  const entry = useMemo<TaskCompanionEntry>(() => ({
+function previewEntry(
+  threadId: string,
+  status: TaskCompanionStatus,
+  taskTitle: string,
+  minute: number,
+): TaskCompanionEntry {
+  return {
     event: {
       schemaVersion: 1,
-      eventId: `preview-${status}`,
-      threadId: "preview-thread",
-      turnId: "preview-turn",
+      eventId: `${threadId}-${status}`,
+      threadId,
+      turnId: `${threadId}-turn`,
       status,
-      occurredAt: "2026-08-04T10:00:00.000Z",
-      projectName: "TokenHalo · Desktop companion",
-      taskTitle: "Implement the adaptive task capsule",
-      durationMs: 185_000,
+      occurredAt: `2026-08-11T10:${String(minute).padStart(2, "0")}:00.000Z`,
+      projectName: "TokenHalo",
+      taskTitle,
+      durationMs: Math.max(1, minute) * 14_000,
       source: "simulator",
     },
     acknowledged: false,
     postponedUntil: null,
     toastExpired: false,
-  }), [status]);
-  const stackEntries = useMemo<TaskCompanionEntry[]>(() => (
-    [
-      ["input", "needsInput", "Review the requested permission"],
-      ["failed", "failed", "Fix the desktop packaging failure"],
-      ["completed", "completed", "Implement the capsule stack"],
-    ] as const
-  ).map(([threadId, itemStatus, taskTitle], index) => ({
-    event: {
-      ...entry.event,
-      eventId: `preview-${threadId}`,
-      threadId: `preview-${threadId}`,
-      turnId: `preview-${threadId}-turn`,
-      status: itemStatus,
-      occurredAt: `2026-08-04T10:00:0${index}.000Z`,
-      taskTitle,
+  };
+}
+
+function fourStatusEntries() {
+  return [
+    previewEntry("input-permission", "needsInput", "确认开发版通知权限", 19),
+    previewEntry("input-settings", "needsInput", "审核任务提醒设置", 18),
+    previewEntry("input-release", "needsInput", "选择测试版发布范围", 17),
+    previewEntry("failed-package", "failed", "修复桌面打包失败", 16),
+    previewEntry("failed-window", "failed", "恢复通知窗口连接", 15),
+    previewEntry("completed-layout", "completed", "完成状态分组布局", 14),
+    previewEntry("completed-tests", "completed", "补充胶囊交互测试", 13),
+    previewEntry("working-preview", "working", "生成网页版交互", 12),
+    previewEntry("working-polish", "working", "优化卡片视觉细节", 11),
+  ];
+}
+
+function sameStatusEntries() {
+  return [
+    previewEntry("working-five", "working", "完善溢出滚动体验", 25),
+    previewEntry("working-four", "working", "检查四张任务卡布局", 24),
+    previewEntry("working-three", "working", "调整状态卡间距", 23),
+    previewEntry("working-two", "working", "优化关闭按钮反馈", 22),
+    previewEntry("working-one", "working", "整理任务名称文案", 21),
+  ];
+}
+
+function entriesForScene(scene: PreviewScene) {
+  if (scene === "single") {
+    return [previewEntry("working-single", "working", "生成网页版交互", 12)];
+  }
+  if (scene === "sameStatus") return sameStatusEntries();
+  if (scene === "permission") return [];
+  return fourStatusEntries();
+}
+
+export function TaskCompanionPlayground() {
+  const [scene, setScene] = useState<PreviewScene>("all");
+  const [entries, setEntries] = useState<TaskCompanionEntry[]>(fourStatusEntries);
+  const [direction, setDirection] = useState<ToastDirection>("top");
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [interactionActive, setInteractionActive] = useState(false);
+  const [feedback, setFeedback] = useState("可悬停状态组并点击同状态卡片展开任务");
+  const newTaskSequence = useRef(0);
+  const groups = useMemo(() => groupTaskEntries(entries), [entries]);
+  const completedEntries = useMemo(
+    () => entries.filter((entry) => entry.event.status === "completed"),
+    [entries],
+  );
+  const attentionCount = entries.filter((entry) => (
+    entry.event.status === "needsInput" || entry.event.status === "failed"
+  )).length;
+  const ringStatus = groups[0]?.status ?? null;
+
+  useTaskToastTimers({
+    entries: completedEntries,
+    paused: interactionActive,
+    durationForEntry: () => 6_000,
+    onExpire: (threadId) => {
+      setEntries((current) => current.filter((entry) => entry.event.threadId !== threadId));
     },
-    acknowledged: false,
-    postponedUntil: null,
-    toastExpired: false,
-  })), [entry.event]);
-  const visibleEntries = stackPreview ? stackEntries : [entry];
-  const toastSize = permissionPreview
-    ? TASK_TOAST_SIZE
-    : taskToastStackSize(visibleEntries.length, stackPreview && stackExpanded);
-  const growth = direction === "bottom" ? "down" : "up";
-  const ringStatus = stackPreview ? "needsInput" : status;
+  });
+
+  const selectScene = (nextScene: PreviewScene) => {
+    setScene(nextScene);
+    setEntries(entriesForScene(nextScene));
+    setInteractionActive(false);
+    setFeedback(nextScene === "permission"
+      ? "首次授权提醒预览"
+      : "场景已重置，可直接体验交互");
+  };
 
   return (
-    <main className="task-playground">
-      <section className="task-playground-stage">
+    <main className="task-playground task-playground--grouped">
+      <section className="task-playground-stage" data-direction={direction}>
         <div className="task-playground-orb">
           <QuotaOrb
             snapshot={previewSnapshot}
-            language={language}
+            language="zh-CN"
             onDrag={() => undefined}
             onHover={() => undefined}
-            taskStatus={permissionPreview ? null : { status: ringStatus, attentionCount: 3 }}
+            taskStatus={ringStatus ? {
+              status: ringStatus,
+              attentionCount,
+            } : null}
           />
         </div>
         <div
-          className="task-playground-toast"
-          style={{
-            width: `${toastSize.width}px`,
-            height: `${toastSize.height}px`,
-            transform: previewToastTransform(direction, toastSize),
-          }}
+          className="task-playground-group-preview"
+          data-direction={direction}
         >
-          {permissionPreview ? (
+          {scene === "permission" ? (
             <TaskPermissionToast
               direction={direction}
-              language={language}
-              onEnable={() => undefined}
-              onDismiss={() => undefined}
+              language="zh-CN"
+              onEnable={() => setFeedback("已模拟开启任务提醒")}
+              onDismiss={() => setFeedback("已模拟暂不开启")}
             />
           ) : (
-            <TaskToastStack
-              entries={visibleEntries}
-              hiddenCount={stackPreview ? 2 : 0}
-              expanded={stackPreview && stackExpanded}
-              growth={growth}
+            <TaskStatusGroupStack
+              groups={groups}
               direction={direction}
-              language={language}
-              openAction="app"
-              onExpandedChange={setStackExpanded}
-              onOpen={() => undefined}
-              onAcknowledge={() => undefined}
-              onPostpone={() => undefined}
+              language="zh-CN"
+              reducedMotion={reducedMotion}
+              onInteractionChange={setInteractionActive}
+              onOpen={(threadId) => setFeedback(`已触发前往 Codex：${threadId}`)}
+              onDismiss={(threadId) => {
+                setEntries((current) => current.filter((entry) => entry.event.threadId !== threadId));
+                setFeedback("已忽略当前任务，组内下一条自动补位");
+              }}
+              onPostpone={(threadId) => {
+                setEntries((current) => current.filter((entry) => entry.event.threadId !== threadId));
+                setFeedback("已模拟稍后提醒，当前任务暂时隐藏");
+              }}
             />
           )}
         </div>
       </section>
       <aside className="task-playground-controls">
-        <p>TASK COMPANION SIMULATOR</p>
-        <h1>Orb + sidecar capsule</h1>
+        <p>任务胶囊交互预览</p>
+        <h1>状态分组通知</h1>
+        <p className="task-playground-description">
+          默认只显示最高优先级状态。悬停展开状态，点击同状态卡片查看任务。
+        </p>
+
         <fieldset>
-          <legend>State</legend>
-          <button
-            type="button"
-            className={permissionPreview ? "is-active" : ""}
-            onClick={() => {
-              setPermissionPreview(true);
-              setStackPreview(false);
-              setStackExpanded(false);
-            }}
-          >
-            首次询问
-          </button>
-          <button
-            type="button"
-            className={stackPreview ? "is-active" : ""}
-            onClick={() => {
-              setPermissionPreview(false);
-              setStackPreview(true);
-              setStackExpanded(false);
-            }}
-          >
-            多任务堆叠
-          </button>
-          {statuses.map((item) => (
-            <button
-              type="button"
-              className={!permissionPreview && !stackPreview && status === item.value ? "is-active" : ""}
-              key={item.value}
-              onClick={() => {
-                setPermissionPreview(false);
-                setStackPreview(false);
-                setStackExpanded(false);
-                setStatus(item.value);
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+          <legend>模拟场景</legend>
+          <button type="button" className={scene === "single" ? "is-active" : ""} onClick={() => selectScene("single")}>单一任务</button>
+          <button type="button" className={scene === "all" ? "is-active" : ""} onClick={() => selectScene("all")}>四种状态</button>
+          <button type="button" className={scene === "sameStatus" ? "is-active" : ""} onClick={() => selectScene("sameStatus")}>同状态 5 条</button>
+          <button type="button" className={scene === "permission" ? "is-active" : ""} onClick={() => selectScene("permission")}>首次询问</button>
         </fieldset>
+
         <fieldset>
-          <legend>Direction</legend>
+          <legend>胶囊位置</legend>
           {directions.map((item) => (
             <button
               type="button"
@@ -200,11 +201,42 @@ export function TaskCompanionPlayground() {
             </button>
           ))}
         </fieldset>
+
         <fieldset>
-          <legend>Language</legend>
-          <button type="button" className={language === "zh-CN" ? "is-active" : ""} onClick={() => setLanguage("zh-CN")}>中文</button>
-          <button type="button" className={language === "en" ? "is-active" : ""} onClick={() => setLanguage("en")}>English</button>
+          <legend>交互选项</legend>
+          <label className="task-playground-toggle">
+            <input
+              type="checkbox"
+              checked={reducedMotion}
+              onChange={(event) => setReducedMotion(event.target.checked)}
+            />
+            <span>减少动态效果</span>
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              newTaskSequence.current += 1;
+              const suffix = newTaskSequence.current;
+              setEntries((current) => [
+                ...current,
+                previewEntry(
+                  `working-new-${suffix}`,
+                  "working",
+                  `新增运行任务 ${suffix}`,
+                  30 + suffix,
+                ),
+              ]);
+              setFeedback("已加入一条新的运行任务");
+            }}
+          >
+            加入新任务
+          </button>
+          <button type="button" onClick={() => selectScene("all")}>重置</button>
         </fieldset>
+
+        <output className="task-playground-feedback" aria-live="polite">
+          {feedback}
+        </output>
       </aside>
     </main>
   );

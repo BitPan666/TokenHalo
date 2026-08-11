@@ -109,4 +109,31 @@ describe("useTaskToastTimers", () => {
     act(() => vi.advanceTimersByTime(1));
     expect(onExpire).toHaveBeenCalledTimes(2);
   });
+
+  it("uses a caller-provided duration while preserving pause and resume", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(BASE_TIME);
+    const onExpire = vi.fn();
+    const visible = [entry("completed", "completed")];
+    const { rerender } = renderHook(
+      ({ paused }) => useTaskToastTimers({
+        entries: visible,
+        paused,
+        onExpire,
+        durationForEntry: () => 6_000,
+      }),
+      { initialProps: { paused: false } },
+    );
+
+    act(() => vi.advanceTimersByTime(2_000));
+    rerender({ paused: true });
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(onExpire).not.toHaveBeenCalled();
+
+    rerender({ paused: false });
+    act(() => vi.advanceTimersByTime(3_999));
+    expect(onExpire).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(1));
+    expect(onExpire).toHaveBeenCalledWith("completed");
+  });
 });
