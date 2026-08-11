@@ -119,6 +119,7 @@ function GroupedTaskCard({
           <button
             type="button"
             className="task-group-close"
+            data-placement="top-left"
             aria-label={copy.dismiss(title)}
             onMouseDown={stopAction}
             onClick={(event) => {

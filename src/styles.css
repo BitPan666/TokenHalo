@@ -700,12 +700,17 @@ button { font: inherit; }
   left: 7px;
   right: 7px;
   height: 84px;
-  border: 1px solid rgb(255 255 255 / .62);
-  border-radius: 24px;
+  border: 1px solid rgb(255 255 255 / .5);
+  border-radius: 18px;
   background:
-    linear-gradient(145deg, rgb(245 251 255 / .82), rgb(210 229 245 / .72));
-  -webkit-backdrop-filter: blur(18px) saturate(1.12);
-  backdrop-filter: blur(18px) saturate(1.12);
+    radial-gradient(circle at 18% 0%, rgb(255 255 255 / .46), transparent 42%),
+    linear-gradient(145deg, rgb(245 251 255 / .54), rgb(191 215 236 / .38)),
+    rgb(196 218 237 / .22);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .58),
+    inset 0 -1px 0 rgb(79 108 139 / .07);
+  -webkit-backdrop-filter: blur(26px) saturate(1.28);
+  backdrop-filter: blur(26px) saturate(1.28);
   pointer-events: none;
 }
 
@@ -737,16 +742,18 @@ button { font: inherit; }
   gap: 10px;
   overflow: visible;
   padding: 10px 14px;
-  border: 1px solid rgb(255 255 255 / .7);
-  border-radius: 24px;
+  border: 1px solid rgb(255 255 255 / .6);
+  border-radius: 18px;
   color: #17253a;
   background:
-    linear-gradient(145deg, rgb(247 252 255 / .91), rgb(214 233 248 / .82));
+    radial-gradient(circle at 18% -8%, rgb(255 255 255 / .62), transparent 44%),
+    linear-gradient(145deg, rgb(247 252 255 / .64), rgb(204 226 244 / .46)),
+    rgb(190 214 234 / .24);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / .84),
+    inset 0 1px 0 rgb(255 255 255 / .76),
     inset 0 -1px 0 rgb(98 132 168 / .08);
-  -webkit-backdrop-filter: blur(20px) saturate(1.14);
-  backdrop-filter: blur(20px) saturate(1.14);
+  -webkit-backdrop-filter: blur(28px) saturate(1.32) contrast(1.02);
+  backdrop-filter: blur(28px) saturate(1.32) contrast(1.02);
 }
 
 .task-group-card--needsInput { --task-group-accent: #f0ae49; }
@@ -756,7 +763,7 @@ button { font: inherit; }
 .task-group-card[data-compact="true"] {
   height: 40px;
   padding-block: 6px;
-  border-radius: 16px;
+  border-radius: 14px;
 }
 
 .task-group-card[data-compact="true"] .task-group-copy p,
@@ -774,7 +781,7 @@ button { font: inherit; }
 
 .task-group-summary:has(.task-group-card[data-compact="true"]) .task-group-back {
   height: 40px;
-  border-radius: 16px;
+  border-radius: 14px;
 }
 
 .task-group-summary:has(.task-group-card[data-compact="true"]) .task-group-back[data-back-index="1"] {
@@ -853,7 +860,7 @@ button { font: inherit; }
   position: absolute;
   z-index: 5;
   top: -12px;
-  right: -12px;
+  left: -12px;
   width: 24px;
   height: 24px;
   display: grid;
@@ -862,8 +869,14 @@ button { font: inherit; }
   border: 1px solid rgb(63 88 116 / .14);
   border-radius: 999px;
   color: #5d7188;
-  background: rgb(245 250 255 / .66);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / .72);
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / .72), rgb(199 215 230 / .58)),
+    rgb(224 234 243 / .48);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .78),
+    0 2px 8px rgb(26 42 59 / .12);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
   cursor: pointer;
 }
 
@@ -921,7 +934,7 @@ button { font: inherit; }
   gap: 8px;
   overflow-y: auto;
   padding-right: 3px;
-  border-radius: 32px;
+  border-radius: 20px;
   scrollbar-color: rgb(92 120 151 / .35) transparent;
   scrollbar-width: thin;
 }

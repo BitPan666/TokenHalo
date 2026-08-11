@@ -117,7 +117,9 @@ describe("TaskStatusGroupStack", () => {
     const card = screen.getByRole("status", { name: "需要处理：确认安装权限" });
 
     fireEvent.mouseEnter(card);
-    fireEvent.click(screen.getByRole("button", { name: "忽略任务：确认安装权限" }));
+    const dismissButton = screen.getByRole("button", { name: "忽略任务：确认安装权限" });
+    expect(dismissButton).toHaveAttribute("data-placement", "top-left");
+    fireEvent.click(dismissButton);
 
     expect(onDismiss).toHaveBeenCalledWith("input-a");
     expect(onOpen).not.toHaveBeenCalled();
