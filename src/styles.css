@@ -756,6 +756,11 @@ button { font: inherit; }
   backdrop-filter: blur(66px) saturate(1.24) contrast(1.02);
 }
 
+.task-group-stack[data-outer-expanded="true"] .task-group-summary > .task-group-card {
+  -webkit-backdrop-filter: blur(80px) saturate(1.24) contrast(1.02);
+  backdrop-filter: blur(80px) saturate(1.24) contrast(1.02);
+}
+
 .task-group-card--needsInput { --task-group-accent: #f0ae49; }
 .task-group-card--completed { --task-group-accent: #4dcf8a; }
 .task-group-card--failed { --task-group-accent: #ef756d; }

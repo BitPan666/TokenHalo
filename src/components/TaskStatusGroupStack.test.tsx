@@ -85,6 +85,35 @@ describe("TaskStatusGroupStack", () => {
     expect(container.querySelectorAll(".task-group-back")).toHaveLength(2);
   });
 
+  it("strengthens blur only for first-level cards while the outer stack is expanded", () => {
+    const style = document.createElement("style");
+    style.textContent = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+    document.head.append(style);
+
+    try {
+      render(<TaskStatusGroupStack {...props()} />);
+      const stack = screen.getByRole("group", { name: "4 种任务状态，9 个任务" });
+      fireEvent.mouseEnter(stack);
+      const expandedFirstLevelCard = screen.getByRole("status", { name: "需要处理：确认安装权限" });
+      expect(expandedFirstLevelCard.parentElement).toHaveClass("task-group-summary");
+
+      fireEvent.click(screen.getByRole("button", { name: "展开需要处理的 3 个任务" }));
+      const taskDetailCard = screen.getAllByRole("status", { name: "需要处理：确认安装权限" })[0];
+      expect(taskDetailCard.closest(".task-group-list")).not.toBeNull();
+
+      const expandedRule = Array.from((style.sheet as CSSStyleSheet).cssRules)
+        .find((rule): rule is CSSStyleRule => (
+          rule instanceof CSSStyleRule
+          && rule.selectorText === ".task-group-stack[data-outer-expanded=\"true\"] .task-group-summary > .task-group-card"
+        ));
+      expect(expandedRule).toBeDefined();
+      expect(expandedRule!.style.getPropertyValue("backdrop-filter"))
+        .toContain("blur(80px)");
+    } finally {
+      style.remove();
+    }
+  });
+
   it("shows only the highest-priority group until the shared region is hovered", () => {
     render(<TaskStatusGroupStack {...props()} />);
     const stack = screen.getByRole("group", { name: "4 种任务状态，9 个任务" });
