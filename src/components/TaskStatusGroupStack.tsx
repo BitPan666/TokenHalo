@@ -36,6 +36,7 @@ interface GroupedTaskCardProps {
   count: number;
   language: Language;
   expandable: boolean;
+  compact: boolean;
   onExpand: () => void;
   onOpen: () => void;
   onDismiss: () => void;
@@ -67,6 +68,7 @@ function GroupedTaskCard({
   count,
   language,
   expandable,
+  compact,
   onExpand,
   onOpen,
   onDismiss,
@@ -78,7 +80,7 @@ function GroupedTaskCard({
   const statusLabel = taskStatusGroupLabel(status, count, language);
   const singleStatusLabel = taskStatusGroupLabel(status, 1, language);
   const duration = formatTaskDuration(entry.event.durationMs);
-  const actionsVisible = hovered || focused;
+  const actionsVisible = !compact && (hovered || focused);
   const copy = actionCopy[language];
 
   return (
@@ -86,6 +88,7 @@ function GroupedTaskCard({
       className={`task-group-card task-group-card--${status}`}
       role="status"
       aria-label={`${singleStatusLabel}：${title}`}
+      data-compact={compact}
       tabIndex={0}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -270,6 +273,7 @@ export function TaskStatusGroupStack({
                     count={1}
                     language={language}
                     expandable={false}
+                    compact={false}
                     onExpand={() => undefined}
                     onOpen={() => onOpen(entry.event.threadId)}
                     onDismiss={() => onDismiss(entry.event.threadId)}
@@ -293,6 +297,7 @@ export function TaskStatusGroupStack({
                   count={group.entries.length}
                   language={language}
                   expandable={group.entries.length > 1}
+                  compact={expandedStatus !== null}
                   onExpand={() => {
                     expandOuter();
                     setExpandedStatus(group.status);

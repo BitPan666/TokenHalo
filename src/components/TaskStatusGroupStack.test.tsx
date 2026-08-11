@@ -96,6 +96,19 @@ describe("TaskStatusGroupStack", () => {
     expect(screen.getByRole("region", { name: "执行失败任务" })).toBeInTheDocument();
   });
 
+  it("compacts the other status summaries while one status group is open", () => {
+    render(<TaskStatusGroupStack {...props()} />);
+    const stack = screen.getByRole("group", { name: "4 种任务状态，9 个任务" });
+    fireEvent.mouseEnter(stack);
+
+    fireEvent.click(screen.getByRole("button", { name: "展开需要处理的 3 个任务" }));
+
+    expect(screen.getByRole("status", { name: "执行失败：修复桌面打包" }))
+      .toHaveAttribute("data-compact", "true");
+    expect(screen.getByRole("status", { name: "需要处理：确认安装权限" }))
+      .toHaveAttribute("data-compact", "false");
+  });
+
   it("dismisses only the hovered top task without triggering its other actions", () => {
     const onDismiss = vi.fn();
     const onOpen = vi.fn();
