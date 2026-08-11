@@ -78,6 +78,7 @@ export default function App() {
   const quotaRefreshPendingRef = useRef(false);
   const externalPreferencesChangedRef = useRef(false);
   const deferredHoverRef = useRef(false);
+  const expandSuppressedUntilLeaveRef = useRef(false);
   const displayIntentRef = useRef<DisplayIntent>({
     generation: 0,
     compact: initialCompact,
@@ -503,7 +504,11 @@ export default function App() {
     finishPreferenceMutation,
   ]);
 
-  const handleHover = useCallback((value: boolean) => {
+  const handleHover = useCallback((value: boolean, source: "hover" | "explicit" = "hover") => {
+    if (source === "hover" && expandSuppressedUntilLeaveRef.current) {
+      if (!value) expandSuppressedUntilLeaveRef.current = false;
+      return;
+    }
     setHovered(value);
     if (!value) setSettingsOpen(false);
     const generation = displayIntentRef.current.generation + 1;
@@ -525,6 +530,7 @@ export default function App() {
         await setWidgetMode(displayMode(intent, confirmedViewRef.current));
       } catch {
         if (displayIntentRef.current.generation !== generation) return;
+        if (!value) expandSuppressedUntilLeaveRef.current = false;
         displayIntentRef.current = {
           ...displayIntentRef.current,
           compact: !intent.compact,
@@ -554,6 +560,11 @@ export default function App() {
       }
     })();
   }, [refresh]);
+
+  const collapseExplicitly = useCallback(() => {
+    expandSuppressedUntilLeaveRef.current = true;
+    handleHover(false, "explicit");
+  }, [handleHover]);
 
   const prepareTaskCompanionTest = useCallback(async () => {
     const generation = displayIntentRef.current.generation + 1;
@@ -707,6 +718,7 @@ export default function App() {
       onLock={toggleAlwaysOnTop}
       onDrag={() => startDragging()}
       onHover={handleHover}
+      onCollapse={collapseExplicitly}
       onSwitchToStats={() => void switchExpandedView("tokenStats")}
       onRefresh={() => refresh(true)}
       refreshing={quotaRefreshing}

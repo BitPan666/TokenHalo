@@ -201,6 +201,10 @@ button { font: inherit; }
 .reset-credit-tip p + p { margin-top: 8px; }
 .provider-mark { position: relative; width: 43px; height: 43px; display: grid; place-items: center; overflow: hidden; padding: 6px; background: transparent; }
 .provider-mark img { width: 100%; height: 100%; object-fit: contain; filter: none; }
+.provider-mark--collapse { border: 0; border-radius: 14px; cursor: pointer; transition: background-color 120ms ease, transform 120ms ease; }
+.provider-mark--collapse:hover { background: rgba(255,255,255,.16); }
+.provider-mark--collapse:active { transform: scale(.94); }
+.provider-mark--collapse:focus-visible { outline: 2px solid color-mix(in srgb, var(--progress-start, #397ae0) 58%, white); outline-offset: 2px; }
 
 .error-state { margin: 35px auto 0; max-width: 224px; text-align: center; }
 .status-icon { width: 42px; height: 42px; display: grid; place-items: center; margin: 0 auto 16px; border: 1px solid rgba(255,255,255,.38); border-radius: 50%; color: rgba(17,20,27,.72); background: rgba(255,255,255,.18); box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 12px 32px rgba(35,48,73,.08); backdrop-filter: blur(10px); }

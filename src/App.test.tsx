@@ -498,6 +498,37 @@ describe("App page switching", () => {
     });
   });
 
+  it("collapses the expanded quota card from its visible collapse control", async () => {
+    render(<App />);
+
+    const collapse = await screen.findByRole("button", { name: "收起悬浮窗" });
+    fireEvent.click(collapse);
+
+    await waitFor(() => {
+      expect(mocks.setWidgetMode).toHaveBeenLastCalledWith("compact");
+      expect(screen.getByLabelText(/5 小时额度剩余 74%/)).toBeInTheDocument();
+    });
+  });
+
+  it("keeps an explicit collapse closed until the pointer leaves the resulting orb", async () => {
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "收起悬浮窗" }));
+    const orb = await screen.findByLabelText(/5 小时额度剩余 74%/);
+    await waitFor(() => expect(mocks.setWidgetMode).toHaveBeenLastCalledWith("compact"));
+    mocks.setWidgetMode.mockClear();
+
+    fireEvent.mouseEnter(orb);
+    expect(mocks.setWidgetMode).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/5 小时额度剩余 74%/)).toBeInTheDocument();
+
+    fireEvent.mouseLeave(orb);
+    fireEvent.mouseEnter(orb);
+    await waitFor(() => {
+      expect(mocks.setWidgetMode).toHaveBeenCalledWith("quota");
+      expect(screen.getByText("CODEX · 剩余额度")).toBeInTheDocument();
+    });
+  });
+
   it("reloads a new granularity, selects its valid bucket, and forces stats refresh", async () => {
     mocks.getPreferences.mockResolvedValue({
       ...quotaPreferences,

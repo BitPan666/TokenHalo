@@ -24,6 +24,7 @@ interface Props {
   onLanguage: () => void;
   onDrag: () => void;
   onHover: (hovered: boolean) => void;
+  onCollapse?: () => void;
   onSwitchToStats?: () => void;
   onRefresh?: () => void;
   refreshing?: boolean;
@@ -73,6 +74,7 @@ export const QuotaCard = memo(function QuotaCard({
   onLanguage,
   onDrag,
   onHover,
+  onCollapse,
   onSwitchToStats = () => undefined,
   onRefresh = () => undefined,
   refreshing = false,
@@ -200,7 +202,10 @@ export const QuotaCard = memo(function QuotaCard({
                   {creditBlock}
                 </div>
               ) : creditBlock}
-              <ProviderMark />
+              <ProviderMark
+                collapseLabel={t.collapseWidget}
+                onCollapse={onCollapse ?? (() => onHover(false))}
+              />
             </footer>
           </>
         ) : (

@@ -187,7 +187,7 @@ describe("QuotaCard", () => {
     expect(screen.queryByText("--")).not.toBeInTheDocument();
     expect(screen.queryByText("较长周期额度剩余")).not.toBeInTheDocument();
     expect(screen.getByText("1 次重置机会")).toBeInTheDocument();
-    expect(screen.getByLabelText("Codex")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "收起悬浮窗" })).toBeInTheDocument();
   });
 
   it("aligns a zero-credit label with the compact provider mark at the details-label size", () => {
