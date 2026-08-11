@@ -15,11 +15,17 @@ import {
 } from "./taskCompanion";
 import type {
   TaskToastActionPayload,
+  TaskToastGroupLayout,
   TaskToastShowRequest,
 } from "./taskToastWindow";
 import { useTaskToastTimers } from "./useTaskToastTimers";
 
 export type TaskOpenResult = "openedTask" | "openedApp" | "unavailable";
+
+const COLLAPSED_GROUP_LAYOUT: TaskToastGroupLayout = {
+  outerExpanded: false,
+  expandedStatus: null,
+};
 
 export interface TaskCompanionBridge {
   listenEvents: (handler: (event: TaskCompanionEvent) => void) => Promise<() => void>;
@@ -51,7 +57,7 @@ export function useTaskCompanion({
 }: UseTaskCompanionOptions) {
   const [state, dispatch] = useReducer(taskCompanionReducer, undefined, createTaskCompanionState);
   const [clock, setClock] = useState(() => Date.now());
-  const [stackExpanded, setStackExpanded] = useState(false);
+  const [groupLayout, setGroupLayout] = useState<TaskToastGroupLayout>(COLLAPSED_GROUP_LAYOUT);
   const stateRef = useRef(state);
   stateRef.current = state;
   const display = useMemo(
@@ -70,8 +76,12 @@ export function useTaskCompanion({
     void Promise.all([
       bridge.listenEvents((event) => dispatch({ type: "event", event, nowMs: Date.now() })),
       bridge.listenActions((action) => {
+        if (action.type === "setGroupLayout") {
+          setGroupLayout(action.layout);
+          return;
+        }
         if (action.type === "setStackExpanded") {
-          setStackExpanded(action.expanded);
+          setGroupLayout({ outerExpanded: action.expanded, expandedStatus: null });
           return;
         }
         if (
@@ -117,7 +127,7 @@ export function useTaskCompanion({
 
   useTaskToastTimers({
     entries: toastEntries,
-    paused: stackExpanded,
+    paused: groupLayout.outerExpanded || groupLayout.expandedStatus !== null,
     onExpire: (threadId) => {
       dispatch({ type: "expireToast", threadId, nowMs: Date.now() });
     },
@@ -127,19 +137,20 @@ export function useTaskCompanion({
     if (bridge === defaultBridge && !("__TAURI_INTERNALS__" in window)) return;
     const selected = toastEntries[0] ?? null;
     if (!selected) {
-      if (stackExpanded) setStackExpanded(false);
+      if (groupLayout.outerExpanded || groupLayout.expandedStatus !== null) {
+        setGroupLayout(COLLAPSED_GROUP_LAYOUT);
+      }
       void bridge.hide();
       return;
     }
 
     void bridge.show({
       entries: toastEntries,
-      hiddenCount: display.hiddenCount,
-      expanded: stackExpanded,
+      layout: groupLayout,
       language,
       openAction: "app",
     });
-  }, [bridge, display.hiddenCount, language, stackExpanded, toastEntries]);
+  }, [bridge, groupLayout, language, toastEntries]);
 
   return {
     taskStatus: display.ring ? {

@@ -55,7 +55,7 @@ afterEach(() => {
 });
 
 describe("useTaskCompanion", () => {
-  it("sends the three highest-priority tasks and the hidden count to the toast window", async () => {
+  it("sends every task and the collapsed group layout to the toast window", async () => {
     const fake = fakeBridge();
     renderHook(() => useTaskCompanion({
       compact: true,
@@ -78,16 +78,16 @@ describe("useTaskCompanion", () => {
         expect.objectContaining({ event: expect.objectContaining({ threadId: "input" }) }),
         expect.objectContaining({ event: expect.objectContaining({ threadId: "failed" }) }),
         expect.objectContaining({ event: expect.objectContaining({ threadId: "completed" }) }),
+        expect.objectContaining({ event: expect.objectContaining({ threadId: "working" }) }),
       ]),
-      hiddenCount: 1,
-      expanded: false,
+      layout: { outerExpanded: false, expandedStatus: null },
       language: "zh-CN",
       openAction: "app",
     }));
     const request = vi.mocked(fake.bridge.show).mock.calls.at(-1)?.[0];
     if (!request || request.kind === "permission") throw new Error("task stack request missing");
     expect(request.entries.map((item) => item.event.threadId))
-      .toEqual(["input", "failed", "completed"]);
+      .toEqual(["input", "failed", "completed", "working"]);
   });
 
   it("settles the working capsule after two seconds without hiding it", async () => {
@@ -129,15 +129,15 @@ describe("useTaskCompanion", () => {
     act(() => fake.emit(event("working", 0, "sessionObserver")));
     act(() => vi.advanceTimersByTime(1_000));
     act(() => fake.action({
-      type: "setStackExpanded",
-      expanded: true,
+      type: "setGroupLayout",
+      layout: { outerExpanded: true, expandedStatus: "working" },
     } as unknown as TaskToastActionPayload));
     act(() => vi.advanceTimersByTime(5_000));
     expect(result.current.activeEntry?.event.threadId).toBe("thread-one");
 
     act(() => fake.action({
-      type: "setStackExpanded",
-      expanded: false,
+      type: "setGroupLayout",
+      layout: { outerExpanded: false, expandedStatus: null },
     } as unknown as TaskToastActionPayload));
     act(() => vi.advanceTimersByTime(1_000));
     expect(result.current.activeEntry?.event.status).toBe("working");

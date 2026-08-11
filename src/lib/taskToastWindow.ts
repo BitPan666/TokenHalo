@@ -127,6 +127,10 @@ export type TaskToastActionPayload =
     expanded: boolean;
   }
   | {
+    type: "setGroupLayout";
+    layout: TaskToastGroupLayout;
+  }
+  | {
     type: "enableTaskNotifications" | "dismissTaskNotifications";
   };
 

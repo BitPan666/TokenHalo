@@ -677,8 +677,17 @@ button { font: inherit; }
 }
 
 .task-group-stack--top,
-.task-group-stack--left {
+.task-group-stack--left,
+.task-group-stack--up {
   flex-direction: column-reverse;
+}
+
+.task-toast-group-surface {
+  width: 272px;
+  min-height: 100%;
+  padding-top: 12px;
+  overflow: visible;
+  background: transparent;
 }
 
 .task-status-group {

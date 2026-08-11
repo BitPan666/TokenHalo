@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { TaskPermissionToast } from "./components/TaskPermissionToast";
-import { TaskToastStack } from "./components/TaskToastStack";
+import { TaskStatusGroupStack } from "./components/TaskStatusGroupStack";
 import {
   emitTaskToastAction,
   listenTaskToastSurfaceEvents,
@@ -9,6 +9,7 @@ import type {
   TaskToastActionPayload,
   TaskToastDisplayPayload,
 } from "./lib/taskToastWindow";
+import { groupTaskEntries } from "./lib/taskStatusGroups";
 
 export interface TaskToastAppBridge {
   listen: (handlers: {
@@ -25,7 +26,21 @@ const defaultBridge: TaskToastAppBridge = {
 
 export function TaskToastApp({ bridge = defaultBridge }: { bridge?: TaskToastAppBridge }) {
   const [display, setDisplay] = useState<TaskToastDisplayPayload | null>(null);
-  const [stackExpanded, setStackExpanded] = useState(false);
+  const emitLayout = useCallback((layout: NonNullable<Extract<
+    TaskToastActionPayload,
+    { type: "setGroupLayout" }
+  >["layout"]>) => {
+    void bridge.emitAction({ type: "setGroupLayout", layout });
+  }, [bridge]);
+  const openTask = useCallback((threadId: string) => {
+    void bridge.emitAction({ type: "open", threadId });
+  }, [bridge]);
+  const dismissTask = useCallback((threadId: string) => {
+    void bridge.emitAction({ type: "acknowledge", threadId });
+  }, [bridge]);
+  const postponeTask = useCallback((threadId: string) => {
+    void bridge.emitAction({ type: "postpone", threadId });
+  }, [bridge]);
 
   useEffect(() => {
     let disposed = false;
@@ -33,11 +48,9 @@ export function TaskToastApp({ bridge = defaultBridge }: { bridge?: TaskToastApp
     void bridge.listen({
       onDisplay: (payload) => {
         setDisplay(payload);
-        if (payload.kind !== "permission") setStackExpanded(payload.expanded);
       },
       onHide: () => {
         setDisplay(null);
-        setStackExpanded(false);
       },
     }).then((stop) => {
       if (disposed) stop();
@@ -61,16 +74,17 @@ export function TaskToastApp({ bridge = defaultBridge }: { bridge?: TaskToastApp
     );
   }
   return (
-    <TaskToastStack
-      {...display}
-      expanded={stackExpanded}
-      onExpandedChange={(expanded) => {
-        setStackExpanded(expanded);
-        void bridge.emitAction({ type: "setStackExpanded", expanded });
-      }}
-      onOpen={(threadId) => void bridge.emitAction({ type: "open", threadId })}
-      onAcknowledge={(threadId) => void bridge.emitAction({ type: "acknowledge", threadId })}
-      onPostpone={(threadId) => void bridge.emitAction({ type: "postpone", threadId })}
-    />
+    <main className="task-toast-group-surface">
+      <TaskStatusGroupStack
+        groups={groupTaskEntries(display.entries)}
+        direction={display.direction}
+        growth={display.growth}
+        language={display.language}
+        onLayoutChange={emitLayout}
+        onOpen={openTask}
+        onDismiss={dismissTask}
+        onPostpone={postponeTask}
+      />
+    </main>
   );
 }

@@ -5,7 +5,7 @@ import "@testing-library/jest-dom/vitest";
 import { readFileSync } from "node:fs";
 // @ts-expect-error Vitest executes this test in Node; the app does not ship Node types.
 import { resolve } from "node:path";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TaskCompanionEntry, TaskCompanionStatus } from "../lib/taskCompanion";
 import { groupTaskEntries } from "../lib/taskStatusGroups";
@@ -150,6 +150,33 @@ describe("TaskStatusGroupStack", () => {
     fireEvent.click(screen.getByRole("button", { name: "展开执行失败的 2 个任务" }));
     expect(screen.queryByRole("region", { name: "需要处理任务" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "执行失败任务" })).toBeInTheDocument();
+  });
+
+  it("reports the outer and inner layout levels to the desktop window", async () => {
+    const onLayoutChange = vi.fn();
+    render(<TaskStatusGroupStack {...props({ onLayoutChange })} />);
+    const stack = screen.getByRole("group", { name: "4 种任务状态，9 个任务" });
+
+    fireEvent.mouseEnter(stack);
+    await waitFor(() => expect(onLayoutChange).toHaveBeenLastCalledWith({
+      outerExpanded: true,
+      expandedStatus: null,
+    }));
+
+    fireEvent.click(screen.getByRole("button", { name: "展开需要处理的 3 个任务" }));
+    await waitFor(() => expect(onLayoutChange).toHaveBeenLastCalledWith({
+      outerExpanded: true,
+      expandedStatus: "needsInput",
+    }));
+  });
+
+  it("uses a localized region label when an English status group is expanded", () => {
+    render(<TaskStatusGroupStack {...props({ language: "en" })} />);
+    const stack = screen.getByRole("group", { name: "4 task statuses, 9 tasks" });
+    fireEvent.mouseEnter(stack);
+    fireEvent.click(screen.getByRole("button", { name: "Expand 3 Needs input tasks" }));
+
+    expect(screen.getByRole("region", { name: "Needs input tasks" })).toBeInTheDocument();
   });
 
   it("compacts the other status summaries while one status group is open", () => {

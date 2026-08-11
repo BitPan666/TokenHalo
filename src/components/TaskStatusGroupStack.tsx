@@ -18,16 +18,20 @@ import {
   type TaskStatusGroup,
 } from "../lib/taskStatusGroups";
 import type { ToastDirection } from "../lib/taskToastPlacement";
+import type { TaskToastStackGrowth } from "../lib/taskToastPlacement";
+import type { TaskToastGroupLayout } from "../lib/taskToastWindow";
 
 interface TaskStatusGroupStackProps {
   groups: TaskStatusGroup[];
   direction: ToastDirection;
+  growth?: TaskToastStackGrowth;
   language: Language;
   reducedMotion?: boolean;
   onOpen: (threadId: string) => void;
   onDismiss: (threadId: string) => void;
   onPostpone: (threadId: string) => void;
   onInteractionChange?: (active: boolean) => void;
+  onLayoutChange?: (layout: TaskToastGroupLayout) => void;
 }
 
 interface GroupedTaskCardProps {
@@ -166,12 +170,14 @@ function GroupedTaskCard({
 export function TaskStatusGroupStack({
   groups,
   direction,
+  growth,
   language,
   reducedMotion = false,
   onOpen,
   onDismiss,
   onPostpone,
   onInteractionChange,
+  onLayoutChange,
 }: TaskStatusGroupStackProps) {
   const rootRef = useRef<HTMLElement>(null);
   const collapseTimerRef = useRef<number | null>(null);
@@ -215,7 +221,8 @@ export function TaskStatusGroupStack({
 
   useEffect(() => {
     onInteractionChange?.(outerExpanded || expandedStatus !== null);
-  }, [expandedStatus, onInteractionChange, outerExpanded]);
+    onLayoutChange?.({ outerExpanded, expandedStatus });
+  }, [expandedStatus, onInteractionChange, onLayoutChange, outerExpanded]);
 
   if (!groups.length) return null;
 
@@ -226,7 +233,7 @@ export function TaskStatusGroupStack({
   return (
     <section
       ref={rootRef}
-      className={`task-group-stack task-group-stack--${direction}`}
+      className={`task-group-stack task-group-stack--${growth ?? direction}`}
       data-outer-expanded={outerExpanded}
       data-inner-expanded={expandedStatus !== null}
       data-reduced-motion={reducedMotion}
@@ -269,7 +276,9 @@ export function TaskStatusGroupStack({
               <section
                 className="task-group-list"
                 role="region"
-                aria-label={`${taskStatusGroupLabel(group.status, 1, language)}任务`}
+                aria-label={language === "zh-CN"
+                  ? `${taskStatusGroupLabel(group.status, 1, language)}任务`
+                  : `${taskStatusGroupLabel(group.status, 1, language)} tasks`}
               >
                 {group.entries.map((entry) => (
                   <GroupedTaskCard

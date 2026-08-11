@@ -33,6 +33,53 @@ const payload: TaskToastDisplayPayload = {
   openAction: "app",
 };
 
+const groupedPayload: TaskToastDisplayPayload = {
+  ...payload,
+  entries: [
+    payload.entries[0],
+    {
+      ...payload.entries[0],
+      event: {
+        ...payload.entries[0].event,
+        eventId: "event-two",
+        threadId: "thread-two",
+        status: "needsInput",
+        taskTitle: "Approve the release",
+      },
+    },
+    {
+      ...payload.entries[0],
+      event: {
+        ...payload.entries[0].event,
+        eventId: "event-three",
+        threadId: "thread-three",
+        status: "failed",
+        taskTitle: "Repair desktop build",
+      },
+    },
+    {
+      ...payload.entries[0],
+      event: {
+        ...payload.entries[0].event,
+        eventId: "event-four",
+        threadId: "thread-four",
+        status: "completed",
+        taskTitle: "Polish task capsule",
+      },
+    },
+    {
+      ...payload.entries[0],
+      event: {
+        ...payload.entries[0].event,
+        eventId: "event-five",
+        threadId: "thread-five",
+        status: "working",
+        taskTitle: "Generate desktop interaction",
+      },
+    },
+  ],
+};
+
 afterEach(cleanup);
 
 describe("TaskToastApp", () => {
@@ -52,16 +99,16 @@ describe("TaskToastApp", () => {
     await waitFor(() => expect(show).toBeDefined());
 
     show?.(payload);
-    await screen.findByText("Needs your input");
+    await screen.findByText("Needs input");
     fireEvent.mouseEnter(screen.getByRole("status"));
-    fireEvent.click(screen.getByRole("button", { name: "Later" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remind me later" }));
     expect(emitAction).toHaveBeenCalledWith({ type: "postpone", threadId: "thread-one" });
 
     hide?.();
-    await waitFor(() => expect(screen.queryByText("Needs your input")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Needs input")).not.toBeInTheDocument());
   });
 
-  it("renders the shared task stack and reports expansion changes", async () => {
+  it("renders grouped task statuses and reports both expansion levels", async () => {
     let show: ((value: TaskToastDisplayPayload) => void) | undefined;
     const emitAction = vi.fn(async () => undefined);
     const bridge: TaskToastAppBridge = {
@@ -74,11 +121,24 @@ describe("TaskToastApp", () => {
     render(<TaskToastApp bridge={bridge} />);
     await waitFor(() => expect(show).toBeDefined());
 
-    show?.({ ...payload, hiddenCount: 2 });
-    const stack = await screen.findByRole("group", { name: "3 task notifications" });
+    show?.(groupedPayload);
+    const stack = await screen.findByRole("group", { name: "4 task statuses, 5 tasks" });
+    expect(screen.getAllByTestId("task-status-group")).toHaveLength(1);
     fireEvent.mouseEnter(stack);
 
-    expect(emitAction).toHaveBeenCalledWith({ type: "setStackExpanded", expanded: true });
+    await waitFor(() => expect(emitAction).toHaveBeenCalledWith({
+      type: "setGroupLayout",
+      layout: { outerExpanded: true, expandedStatus: null },
+    }));
+    expect(screen.getAllByTestId("task-status-group")).toHaveLength(4);
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand 2 Needs input tasks" }));
+
+    await waitFor(() => expect(emitAction).toHaveBeenCalledWith({
+      type: "setGroupLayout",
+      layout: { outerExpanded: true, expandedStatus: "needsInput" },
+    }));
+    expect(screen.getByRole("region", { name: "Needs input tasks" })).toBeInTheDocument();
   });
 
   it("renders the first-use task reminder choice and emits either decision", async () => {
