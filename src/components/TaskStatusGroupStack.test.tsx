@@ -109,6 +109,10 @@ describe("TaskStatusGroupStack", () => {
       expect(expandedRule).toBeDefined();
       expect(expandedRule!.style.getPropertyValue("backdrop-filter"))
         .toContain("blur(80px)");
+      expect(expandedRule!.style.getPropertyValue("background-color"))
+        .toBe("rgba(204, 222, 238, .62)");
+      expect(expandedRule!.style.getPropertyValue("background-image").match(/gradient/g) ?? [])
+        .toHaveLength(2);
     } finally {
       style.remove();
     }
