@@ -95,9 +95,9 @@ fn task_toast_is_hidden_focus_safe_and_allows_stack_height() {
     assert_eq!(toast["width"], 260);
     assert_eq!(toast["height"], 96);
     assert_eq!(toast["minWidth"], 260);
-    assert_eq!(toast["maxWidth"], 260);
+    assert_eq!(toast["maxWidth"], 272);
     assert_eq!(toast["minHeight"], 96);
-    assert_eq!(toast["maxHeight"], 400);
+    assert_eq!(toast["maxHeight"], 600);
     assert_eq!(toast["visible"], false);
     assert_eq!(toast["focus"], false);
     assert_eq!(toast["resizable"], false);

@@ -182,13 +182,13 @@ export function selectTaskCompanionDisplay(
       return true;
     })
     .sort(newestFirst);
-  const visible = eligible.slice(0, 3);
+  const visible = eligible;
   const selected = visible[0] ?? null;
 
   return {
     selected,
     visible,
-    hiddenCount: Math.max(0, eligible.length - visible.length),
+    hiddenCount: 0,
     ring,
     unresolvedCount,
   };

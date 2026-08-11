@@ -1,6 +1,7 @@
 import type { Language } from "../types";
 import type { TaskOpenAction } from "../components/TaskToast";
-import type { TaskCompanionEntry } from "./taskCompanion";
+import type { TaskCompanionEntry, TaskCompanionStatus } from "./taskCompanion";
+import { groupTaskEntries } from "./taskStatusGroups";
 import {
   planTaskToastPlacement,
   planTaskToastStackPlacement,
@@ -17,6 +18,69 @@ export const TASK_TOAST_SIZE = TASK_TOAST_CARD_SIZE;
 export const TASK_TOAST_GAP = 8;
 export const TASK_TOAST_STACK_OFFSET = 11;
 export const TASK_TOAST_EXPANDED_GAP = 8;
+export const TASK_STATUS_GROUP_SURFACE_WIDTH = 272;
+export const TASK_STATUS_GROUP_TOP_INSET = 12;
+export const TASK_STATUS_GROUP_CARD_HEIGHT = 84;
+export const TASK_STATUS_GROUP_COMPACT_HEIGHT = 40;
+export const TASK_STATUS_GROUP_GAP = 8;
+export const TASK_STATUS_GROUP_LIST_MAX_HEIGHT = 360;
+
+export interface TaskToastGroupLayout {
+  outerExpanded: boolean;
+  expandedStatus: TaskCompanionStatus | null;
+}
+
+function backOffset(count: number, compact: boolean) {
+  if (count <= 1) return 0;
+  if (count === 2) return compact ? 6 : 12;
+  return compact ? 12 : 20;
+}
+
+function expandedEntryListHeight(entryCount: number) {
+  return Math.min(
+    TASK_STATUS_GROUP_LIST_MAX_HEIGHT,
+    entryCount * TASK_STATUS_GROUP_CARD_HEIGHT
+      + Math.max(0, entryCount - 1) * TASK_STATUS_GROUP_GAP,
+  );
+}
+
+export function taskStatusGroupStackSize(
+  entries: TaskCompanionEntry[],
+  layout: TaskToastGroupLayout,
+): Size {
+  const groups = groupTaskEntries(entries);
+  if (!groups.length) {
+    return { width: TASK_STATUS_GROUP_SURFACE_WIDTH, height: TASK_TOAST_CARD_SIZE.height };
+  }
+
+  if (!layout.outerExpanded) {
+    const backCount = Math.min(2, Math.max(0, entries.length - 1));
+    return {
+      width: TASK_STATUS_GROUP_SURFACE_WIDTH,
+      height: TASK_STATUS_GROUP_TOP_INSET
+        + TASK_STATUS_GROUP_CARD_HEIGHT
+        + backOffset(backCount + 1, false),
+    };
+  }
+
+  const contentHeight = groups.reduce((total, group) => {
+    if (layout.expandedStatus === group.status) {
+      return total + expandedEntryListHeight(group.entries.length);
+    }
+    const compact = layout.expandedStatus !== null;
+    const cardHeight = compact
+      ? TASK_STATUS_GROUP_COMPACT_HEIGHT
+      : TASK_STATUS_GROUP_CARD_HEIGHT;
+    return total + cardHeight + backOffset(group.entries.length, compact);
+  }, 0);
+
+  return {
+    width: TASK_STATUS_GROUP_SURFACE_WIDTH,
+    height: TASK_STATUS_GROUP_TOP_INSET
+      + contentHeight
+      + Math.max(0, groups.length - 1) * TASK_STATUS_GROUP_GAP,
+  };
+}
 
 export function taskToastStackSize(count: number, expanded: boolean): Size {
   const visibleCount = Math.max(1, Math.min(3, Math.floor(count)));
@@ -36,6 +100,7 @@ export interface TaskStatusToastDisplayPayload {
   hiddenCount: number;
   expanded: boolean;
   visibleCapacity: number;
+  layout?: TaskToastGroupLayout;
   growth: TaskToastStackGrowth;
   direction: ToastDirection;
   language: Language;
@@ -68,8 +133,9 @@ export type TaskToastActionPayload =
 export interface TaskStatusToastShowRequest {
   kind?: "task";
   entries: TaskCompanionEntry[];
-  hiddenCount: number;
-  expanded: boolean;
+  hiddenCount?: number;
+  expanded?: boolean;
+  layout?: TaskToastGroupLayout;
   language: Language;
   openAction: TaskOpenAction;
 }
@@ -130,14 +196,13 @@ export function createTaskToastWindowController(
         width: toLogical(state.workArea.width, scaleFactor),
         height: toLogical(state.workArea.height, scaleFactor),
       };
-      const basePlacement = planTaskToastPlacement({
-        orbFrame,
-        toastSize: TASK_TOAST_CARD_SIZE,
-        workArea,
-        gap: TASK_TOAST_GAP,
-      });
-
       if (request.kind === "permission") {
+        const basePlacement = planTaskToastPlacement({
+          orbFrame,
+          toastSize: TASK_TOAST_CARD_SIZE,
+          workArea,
+          gap: TASK_TOAST_GAP,
+        });
         await adapter.apply({
           physicalPosition: {
             x: Math.round(basePlacement.position.x * scaleFactor),
@@ -149,30 +214,41 @@ export function createTaskToastWindowController(
         return basePlacement;
       }
 
-      const requestedCount = Math.max(1, Math.min(3, request.entries.length));
-      let visibleCapacity = requestedCount;
-      let logicalSize = taskToastStackSize(visibleCapacity, request.expanded);
-      let placement = planTaskToastStackPlacement({
+      const layout = request.layout ?? {
+        outerExpanded: Boolean(request.expanded),
+        expandedStatus: null,
+      };
+      const collapsedSize = taskStatusGroupStackSize(request.entries, {
+        outerExpanded: false,
+        expandedStatus: null,
+      });
+      const candidateLayouts: TaskToastGroupLayout[] = [
+        { outerExpanded: true, expandedStatus: null },
+        ...groupTaskEntries(request.entries).map((group) => ({
+          outerExpanded: true,
+          expandedStatus: group.status,
+        })),
+      ];
+      const largestSize = candidateLayouts
+        .map((candidate) => taskStatusGroupStackSize(request.entries, candidate))
+        .reduce((largest, candidate) => (
+          candidate.height > largest.height ? candidate : largest
+        ), collapsedSize);
+      const preferredPlacement = planTaskToastPlacement({
         orbFrame,
-        toastSize: logicalSize,
-        anchorSize: TASK_TOAST_CARD_SIZE,
+        toastSize: largestSize,
         workArea,
         gap: TASK_TOAST_GAP,
-        direction: basePlacement.direction,
       });
-      while (!placement.fits && visibleCapacity > 1) {
-        visibleCapacity -= 1;
-        logicalSize = taskToastStackSize(visibleCapacity, request.expanded);
-        placement = planTaskToastStackPlacement({
-          orbFrame,
-          toastSize: logicalSize,
-          anchorSize: TASK_TOAST_CARD_SIZE,
-          workArea,
-          gap: TASK_TOAST_GAP,
-          direction: basePlacement.direction,
-        });
-      }
-      const clippedCount = Math.max(0, request.entries.length - visibleCapacity);
+      const logicalSize = taskStatusGroupStackSize(request.entries, layout);
+      const placement = planTaskToastStackPlacement({
+        orbFrame,
+        toastSize: logicalSize,
+        anchorSize: collapsedSize,
+        workArea,
+        gap: TASK_TOAST_GAP,
+        direction: preferredPlacement.direction,
+      });
       await adapter.apply({
         physicalPosition: {
           x: Math.round(placement.position.x * scaleFactor),
@@ -181,9 +257,11 @@ export function createTaskToastWindowController(
         logicalSize,
         payload: {
           ...request,
-          entries: request.entries.slice(0, visibleCapacity),
-          hiddenCount: request.hiddenCount + clippedCount,
-          visibleCapacity,
+          entries: request.entries,
+          hiddenCount: request.hiddenCount ?? 0,
+          expanded: layout.outerExpanded || layout.expandedStatus !== null,
+          visibleCapacity: request.entries.length,
+          layout,
           growth: placement.growth,
           direction: placement.direction,
         },
