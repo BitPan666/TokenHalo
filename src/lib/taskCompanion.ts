@@ -195,7 +195,11 @@ export function selectTaskCompanionDisplay(
 }
 
 export function taskCompanionLabel(event: TaskCompanionEvent) {
-  return event.taskTitle?.trim()
+  const taskTitle = event.taskTitle?.trim();
+  const isSkillInvocation = taskTitle
+    ? /^\[\$[^\]]+\]\(/.test(taskTitle)
+    : false;
+  return (isSkillInvocation ? "" : taskTitle)
     || event.projectName?.trim()
     || "Codex task";
 }

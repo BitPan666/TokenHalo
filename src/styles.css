@@ -467,9 +467,35 @@ button { font: inherit; }
 }
 
 .task-toast-primary {
-  border: 1px solid color-mix(in srgb, var(--task-action-blue) 48%, #35506c);
+  border: 1px solid color-mix(in srgb, var(--task-action-blue) 44%, #35506c);
   color: #fff;
-  background: color-mix(in srgb, var(--task-action-blue) 72%, #35506c);
+  background-color: color-mix(in srgb, var(--task-action-blue) 72%, #35506c);
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, .34) 0%, rgba(255, 255, 255, .12) 34%, transparent 56%),
+    linear-gradient(180deg, color-mix(in srgb, var(--task-action-blue) 84%, #fff) 0%, color-mix(in srgb, var(--task-action-blue) 72%, #35506c) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .42),
+    inset 0 -1px 1px rgba(35, 67, 105, .2);
+  transition: box-shadow 120ms ease, transform 120ms ease;
+}
+
+.task-toast-primary:hover {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, .4) 0%, rgba(255, 255, 255, .15) 34%, transparent 56%),
+    linear-gradient(180deg, color-mix(in srgb, var(--task-action-blue) 86%, #fff) 0%, color-mix(in srgb, var(--task-action-blue) 74%, #35506c) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .5),
+    inset 0 -1px 1px rgba(35, 67, 105, .18);
+}
+
+.task-toast-primary:active {
+  transform: translateY(1px);
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, .08) 34%, transparent 56%),
+    linear-gradient(180deg, color-mix(in srgb, var(--task-action-blue) 79%, #fff) 0%, color-mix(in srgb, var(--task-action-blue) 68%, #35506c) 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(35, 67, 105, .16),
+    inset 0 -1px 0 rgba(255, 255, 255, .2);
 }
 
 .task-toast-secondary {

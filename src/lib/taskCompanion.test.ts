@@ -208,6 +208,14 @@ describe("taskCompanionReducer", () => {
     expect(taskCompanionLabel(event("alpha", "working", 1))).toBe("Task alpha");
     expect(taskCompanionLabel(event("alpha", "working", 1, { projectName: "TokenHalo", taskTitle: "" })))
       .toBe("TokenHalo");
+    expect(taskCompanionLabel(event("alpha", "working", 1, {
+      projectName: "TokenHalo",
+      taskTitle: "[$manage-taskboard](/Users/example/skills/manage-taskboard/SKILL.md)",
+    }))).toBe("TokenHalo");
+    expect(taskCompanionLabel(event("alpha", "working", 1, {
+      projectName: "TokenHalo",
+      taskTitle: "[$manage-taskboard](/Users/example/skills/manage-taskboard/SKIL…",
+    }))).toBe("TokenHalo");
     expect(taskCompanionLabel(event("alpha", "working", 1, { projectName: null, taskTitle: null })))
       .toBe("Codex task");
     expect(formatTaskDuration(null)).toBeNull();

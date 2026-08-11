@@ -118,6 +118,24 @@ describe("TaskToast", () => {
     expect(toastStyles).toContain("var(--task-action-blue)");
   });
 
+  it("gives the primary action a translucent top highlight and inset depth", () => {
+    const style = document.createElement("style");
+    style.textContent = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+    document.head.append(style);
+
+    const primaryRule = Array.from((style.sheet as CSSStyleSheet).cssRules)
+      .find((rule): rule is CSSStyleRule => (
+        rule instanceof CSSStyleRule && rule.selectorText === ".task-toast-primary"
+      ));
+    const backgroundImage = primaryRule?.style.getPropertyValue("background-image") ?? "";
+
+    expect(backgroundImage.match(/linear-gradient/g) ?? []).toHaveLength(2);
+    expect(backgroundImage).toContain("255, 255, 255");
+    expect(primaryRule?.style.getPropertyValue("box-shadow")).toContain("inset");
+
+    style.remove();
+  });
+
   it("keeps the transparent desktop window free of a rectangular backing layer", () => {
     const style = document.createElement("style");
     style.textContent = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
