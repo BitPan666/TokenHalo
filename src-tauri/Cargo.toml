@@ -1,6 +1,6 @@
 [package]
 name = "tokenhalo"
-version = "0.1.7-5"
+version = "0.1.7-6"
 description = "A lightweight floating Codex quota monitor"
 authors = ["TokenHalo contributors"]
 license = "MIT"
