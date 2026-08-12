@@ -1,7 +1,7 @@
 {
   "name": "tokenhalo",
   "private": true,
-  "version": "0.1.7-9",
+  "version": "0.1.7-10",
   "type": "module",
   "scripts": {
     "brand:check": "node scripts/check-brand-residue.mjs",
