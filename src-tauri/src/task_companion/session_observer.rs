@@ -31,18 +31,20 @@ struct ObservedSession {
 #[derive(Debug)]
 pub struct SessionObserver {
     sessions_root: PathBuf,
+    session_index_path: Option<PathBuf>,
     state_db_paths: Vec<PathBuf>,
     files: HashMap<PathBuf, ObservedSession>,
 }
 
 impl SessionObserver {
     pub fn new(sessions_root: PathBuf) -> Self {
-        let state_db_paths = sessions_root
-            .parent()
-            .map(|codex_root| {
+        let codex_root = sessions_root.parent();
+        let session_index_path = codex_root.map(|root| root.join("session_index.jsonl"));
+        let state_db_paths = codex_root
+            .map(|root| {
                 vec![
-                    codex_root.join("state_5.sqlite"),
-                    codex_root.join("sqlite").join("state_5.sqlite"),
+                    root.join("state_5.sqlite"),
+                    root.join("sqlite").join("state_5.sqlite"),
                 ]
             })
             .unwrap_or_default();
@@ -62,6 +64,7 @@ impl SessionObserver {
         }
         Self {
             sessions_root,
+            session_index_path,
             state_db_paths,
             files,
         }
@@ -79,7 +82,11 @@ impl SessionObserver {
                 });
             let mut appended = read_appended(&path, session);
             for event in &mut appended {
-                event.task_title = resolve_task_title(&self.state_db_paths, &event.thread_id);
+                event.task_title = resolve_task_title(
+                    self.session_index_path.as_deref(),
+                    &self.state_db_paths,
+                    &event.thread_id,
+                );
             }
             events.extend(appended);
         }
@@ -123,7 +130,53 @@ fn project_name(cwd: &str) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn resolve_task_title(state_db_paths: &[PathBuf], thread_id: &str) -> Option<String> {
+fn sidebar_task_title(session_index_path: &Path, thread_id: &str) -> Option<String> {
+    let reader = BufReader::new(File::open(session_index_path).ok()?);
+    let mut latest = None;
+    for line in reader.lines().map_while(Result::ok) {
+        if line.len() > MAX_LINE_BYTES {
+            continue;
+        }
+        let Ok(value) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
+        if value.get("id").and_then(Value::as_str) != Some(thread_id) {
+            continue;
+        }
+        latest = value
+            .get("thread_name")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|title| !title.is_empty())
+            .map(ToOwned::to_owned);
+    }
+    latest
+}
+
+fn limited_task_title(title: String) -> Option<String> {
+    let trimmed = title.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let mut title: String = trimmed.chars().take(TITLE_LIMIT).collect();
+    if trimmed.chars().count() > TITLE_LIMIT {
+        title.push('…');
+    }
+    Some(title)
+}
+
+fn resolve_task_title(
+    session_index_path: Option<&Path>,
+    state_db_paths: &[PathBuf],
+    thread_id: &str,
+) -> Option<String> {
+    if let Some(title) = session_index_path
+        .and_then(|path| sidebar_task_title(path, thread_id))
+        .and_then(limited_task_title)
+    {
+        return Some(title);
+    }
+
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let title = state_db_paths.iter().find_map(|path| {
         let connection = Connection::open_with_flags(path, flags).ok()?;
@@ -140,12 +193,7 @@ fn resolve_task_title(state_db_paths: &[PathBuf], thread_id: &str) -> Option<Str
             .ok()
             .flatten()
     })?;
-    let trimmed = title.trim();
-    let mut title: String = trimmed.chars().take(TITLE_LIMIT).collect();
-    if trimmed.chars().count() > TITLE_LIMIT {
-        title.push('…');
-    }
-    Some(title)
+    limited_task_title(title)
 }
 
 fn event(
@@ -414,6 +462,62 @@ mod tests {
         let events = observer.poll();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].task_title.as_deref(), Some("优化任务胶囊"));
+    }
+
+    #[test]
+    fn prefers_the_latest_sidebar_thread_name_over_the_persisted_first_message_title() {
+        let root = tempfile::tempdir().unwrap();
+        let codex_root = root.path().join(".codex");
+        let sessions_root = codex_root.join("sessions");
+        fs::create_dir_all(&sessions_root).unwrap();
+        let thread_id = "019fea73-29fb-7fa0-beb4-70393b3af5aa";
+        let path = sessions_root.join(format!("rollout-2026-08-10T10-00-00-{thread_id}.jsonl"));
+        fs::write(&path, "").unwrap();
+        fs::write(
+            codex_root.join("session_index.jsonl"),
+            format!(
+                "{{\"id\":\"{thread_id}\",\"thread_name\":\"旧侧边栏名称\"}}\n{{\"id\":\"{thread_id}\",\"thread_name\":\"优化用量浮层交互体验\"}}\n"
+            ),
+        )
+        .unwrap();
+
+        let connection = Connection::open(codex_root.join("state_5.sqlite")).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE threads (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    first_user_message TEXT NOT NULL
+                );",
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO threads (id, title, first_user_message) VALUES (?1, ?2, ?3)",
+                (
+                    thread_id,
+                    "你帮我看看迭代的方向可以往哪走",
+                    "你帮我看看迭代的方向可以往哪走",
+                ),
+            )
+            .unwrap();
+        drop(connection);
+
+        let mut observer = SessionObserver::new(sessions_root);
+        append(
+            &path,
+            &[
+                r#"{"timestamp":"2026-08-10T10:00:00Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-1","started_at":"2026-08-10T10:00:00Z"}}"#,
+                r#"{"timestamp":"2026-08-10T10:00:01Z","type":"event_msg","payload":{"type":"user_message","message":"继续处理这个任务"}}"#,
+            ],
+        );
+
+        let events = observer.poll();
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].task_title.as_deref(),
+            Some("优化用量浮层交互体验")
+        );
     }
 
     #[test]
