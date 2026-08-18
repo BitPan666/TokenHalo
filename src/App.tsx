@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QuotaCard, QuotaOrb } from "./components/QuotaCard";
 import { TokenStatsCard } from "./components/TokenStatsCard";
 import type { AppearanceSection } from "./components/AppearanceSheet";
-import { fetchSnapshots, getCodexForeground, getPreferences, listenDesktopEvents, setAlwaysOnTop, setWidgetMode, startDragging, updatePreferences } from "./lib/bridge";
+import { fetchSnapshots, getCodexForeground, getPreferences, getWidgetPointerInside, listenDesktopEvents, setAlwaysOnTop, setWidgetMode, startDragging, updatePreferences } from "./lib/bridge";
 import { needsFastRefresh } from "./lib/format";
 import { copy, nextLanguage, normalizeLanguage } from "./lib/i18n";
 import { mergeSnapshots } from "./lib/snapshots";
@@ -70,6 +70,7 @@ export default function App() {
     "appearance",
   );
   const [codexForeground, setCodexForeground] = useState(false);
+  const [nativePointerInside, setNativePointerInside] = useState(false);
   const failures = useRef(0);
   const preferencesRef = useRef(preferences);
   const preferencesReadyRef = useRef(false);
@@ -306,6 +307,7 @@ export default function App() {
     }, onRefresh: () => void refresh(true), onNativePointer: (payload) => {
       if (nativePointerInsideRef.current === payload.inside) return;
       nativePointerInsideRef.current = payload.inside;
+      setNativePointerInside(payload.inside);
       nativeHoverHandlerRef.current(payload.inside);
     } }).then((value) => {
       if (cancelled) value(); else cleanup = value;
@@ -567,6 +569,32 @@ export default function App() {
     })();
   }, [refresh]);
   nativeHoverHandlerRef.current = (inside) => handleHover(inside);
+
+  useEffect(() => {
+    if (!nativePointerInside) return;
+    let cancelled = false;
+    let pending = false;
+    const verifyPointerStillInside = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const inside = await getWidgetPointerInside();
+        if (cancelled || inside || settingsOpen) return;
+        nativePointerInsideRef.current = false;
+        setNativePointerInside(false);
+        nativeHoverHandlerRef.current(false);
+      } catch {
+        // Keep the native hover active and retry on the next short interval.
+      } finally {
+        pending = false;
+      }
+    };
+    const interval = window.setInterval(() => void verifyPointerStillInside(), 120);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [nativePointerInside, settingsOpen]);
 
   const collapseExplicitly = useCallback(() => {
     expandSuppressedUntilLeaveRef.current = true;

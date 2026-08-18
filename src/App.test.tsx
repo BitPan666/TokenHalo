@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   disconnectTaskCompanion: vi.fn(),
   fetchSnapshots: vi.fn(),
   getCodexForeground: vi.fn(),
+  getWidgetPointerInside: vi.fn(),
   getPreferences: vi.fn(),
   getTaskCompanionConnection: vi.fn(),
   listenDesktopEvents: vi.fn(),
@@ -44,6 +45,7 @@ vi.mock("./lib/bridge", () => ({
   disconnectTaskCompanion: mocks.disconnectTaskCompanion,
   fetchSnapshots: mocks.fetchSnapshots,
   getCodexForeground: mocks.getCodexForeground,
+  getWidgetPointerInside: mocks.getWidgetPointerInside,
   getPreferences: mocks.getPreferences,
   getTaskCompanionConnection: mocks.getTaskCompanionConnection,
   listenDesktopEvents: mocks.listenDesktopEvents,
@@ -169,6 +171,7 @@ describe("App page switching", () => {
     mocks.connectTaskCompanion.mockReset().mockResolvedValue({ state: "needsTrust" });
     mocks.disconnectTaskCompanion.mockReset().mockResolvedValue({ state: "disconnected" });
     mocks.getCodexForeground.mockReset().mockResolvedValue(false);
+    mocks.getWidgetPointerInside.mockReset().mockResolvedValue(true);
     mocks.getPreferences.mockReset().mockResolvedValue(quotaPreferences);
     mocks.getTaskCompanionConnection.mockReset().mockResolvedValue({ state: "disconnected" });
     mocks.testTaskCompanionNotification.mockReset().mockResolvedValue(undefined);
@@ -517,6 +520,47 @@ describe("App page switching", () => {
       expect(mocks.setWidgetMode).toHaveBeenLastCalledWith("compact");
       expect(screen.getByLabelText(/5 小时额度剩余 74%/)).toBeInTheDocument();
     });
+  });
+
+  it("collapses when macOS misses the native exit event after the widget resizes", async () => {
+    setWindowSide(100);
+    mocks.getWidgetPointerInside
+      .mockResolvedValueOnce(true)
+      .mockResolvedValue(false);
+    render(<App />);
+
+    await screen.findByLabelText(/5 小时额度剩余 74%/);
+    emitNativePointer({ inside: true });
+    await screen.findByText("CODEX · 剩余额度");
+
+    await waitFor(() => {
+      expect(mocks.getWidgetPointerInside).toHaveBeenCalled();
+      expect(mocks.setWidgetMode).toHaveBeenLastCalledWith("compact");
+      expect(screen.getByLabelText(/5 小时额度剩余 74%/)).toBeInTheDocument();
+    }, { timeout: 1_500 });
+  });
+
+  it("keeps an open appearance sheet expanded when the pointer watchdog detects leave", async () => {
+    setWindowSide(100);
+    const pointerCheck = deferred<boolean>();
+    mocks.getWidgetPointerInside.mockReturnValue(pointerCheck.promise);
+    render(<App />);
+
+    await screen.findByLabelText(/5 小时额度剩余 74%/);
+    emitNativePointer({ inside: true });
+    await screen.findByText("CODEX · 剩余额度");
+    await waitFor(() => expect(mocks.getWidgetPointerInside).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "设置与说明" }));
+    mocks.setWidgetMode.mockClear();
+
+    await act(async () => {
+      pointerCheck.resolve(false);
+      await pointerCheck.promise;
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("dialog", { name: "设置与说明" })).toBeInTheDocument();
+    expect(mocks.setWidgetMode).not.toHaveBeenCalledWith("compact");
   });
 
   it("collapses the expanded quota card from its visible collapse control", async () => {

@@ -626,6 +626,52 @@ fn emit_test_task_companion_event(app: AppHandle) -> Result<(), String> {
     .map_err(|_| "failed to send test notification".to_string())
 }
 
+fn point_is_inside_rect(
+    pointer_x: f64,
+    pointer_y: f64,
+    rect_x: i32,
+    rect_y: i32,
+    rect_width: u32,
+    rect_height: u32,
+) -> bool {
+    pointer_x >= f64::from(rect_x)
+        && pointer_x < f64::from(rect_x) + f64::from(rect_width)
+        && pointer_y >= f64::from(rect_y)
+        && pointer_y < f64::from(rect_y) + f64::from(rect_height)
+}
+
+#[tauri::command]
+fn get_widget_pointer_inside(app: AppHandle) -> bool {
+    let Some(window) = app.get_webview_window("widget") else {
+        return false;
+    };
+    let Ok(pointer) = app.cursor_position() else {
+        return false;
+    };
+    let (Ok(position), Ok(size)) = (window.outer_position(), window.outer_size()) else {
+        return false;
+    };
+    point_is_inside_rect(
+        pointer.x,
+        pointer.y,
+        position.x,
+        position.y,
+        size.width,
+        size.height,
+    )
+}
+
+#[cfg(test)]
+mod widget_pointer_tests {
+    use super::*;
+
+    #[test]
+    fn detects_when_the_pointer_has_left_a_resized_widget() {
+        assert!(point_is_inside_rect(1900.0, 1000.0, 1824, 955, 320, 320));
+        assert!(!point_is_inside_rect(1459.0, 894.0, 1824, 955, 320, 320));
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct CodexOpenRequest {
     app_identifier: &'static str,
@@ -928,6 +974,7 @@ pub fn run() {
             check_for_updates,
             open_release_page,
             get_codex_foreground,
+            get_widget_pointer_inside,
             get_task_companion_connection,
             connect_task_companion,
             disconnect_task_companion,

@@ -54,6 +54,12 @@ export async function getPreferences(): Promise<WidgetPreferences> {
   return invoke<WidgetPreferences>("get_preferences");
 }
 
+export async function getWidgetPointerInside(): Promise<boolean> {
+  if (!isTauri()) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("get_widget_pointer_inside");
+}
+
 export async function updatePreferences(value: WidgetPreferences): Promise<void> {
   if (!isTauri()) return;
   const { invoke } = await import("@tauri-apps/api/core");
