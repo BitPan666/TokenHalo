@@ -65,6 +65,7 @@ jobs:
           releaseBody: |
             ## Experience build
 
+            - Restores reliable automatic collapse after the pointer leaves a resized floating widget, including when macOS misses the native exit event.
             - Fixes floating-orb and task-capsule hover interactions while another macOS app is active, without taking keyboard focus away from your work.
             - Opens the selected Codex task directly and switches to Codex even when it is on another macOS desktop.
             - Adds the pet-style multi-task capsule stack beside the floating orb.
