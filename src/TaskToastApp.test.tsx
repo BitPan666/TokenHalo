@@ -83,6 +83,28 @@ const groupedPayload: TaskToastDisplayPayload = {
 afterEach(cleanup);
 
 describe("TaskToastApp", () => {
+  it("reveals the hovered task actions from native pointer events while another app is active", async () => {
+    let show: ((value: TaskToastDisplayPayload) => void) | undefined;
+    let nativePointer: ((value: { inside: boolean; x?: number; y?: number }) => void) | undefined;
+    const bridge: TaskToastAppBridge = {
+      listen: vi.fn(async (handlers) => {
+        show = handlers.onDisplay;
+        nativePointer = handlers.onNativePointer;
+        return () => undefined;
+      }),
+      emitAction: vi.fn(async () => undefined),
+    };
+    render(<TaskToastApp bridge={bridge} />);
+    await waitFor(() => expect(show).toBeDefined());
+
+    show?.(payload);
+    await screen.findByText("Needs input");
+    expect(screen.queryByRole("button", { name: "Go to Codex" })).not.toBeInTheDocument();
+
+    nativePointer?.({ inside: true, x: 120, y: 48 });
+    expect(await screen.findByRole("button", { name: "Go to Codex" })).toBeInTheDocument();
+  });
+
   it("renders display events, emits actions, and clears on hide", async () => {
     let show: ((value: TaskToastDisplayPayload) => void) | undefined;
     let hide: (() => void) | undefined;

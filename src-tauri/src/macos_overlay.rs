@@ -1,20 +1,86 @@
 use std::io;
 
-use tauri::Manager;
+use serde::Serialize;
+use tauri::{Emitter, Manager};
 use tauri_nspanel::{
-    objc2_app_kit::NSWindowCollectionBehavior, objc2_foundation::NSProcessInfo, tauri_panel,
-    CollectionBehavior, PanelLevel, StyleMask, WebviewWindowExt,
+    objc2_app_kit::{NSTrackingArea, NSWindowCollectionBehavior},
+    objc2_foundation::NSProcessInfo,
+    tauri_panel, CollectionBehavior, ManagerExt, Panel, PanelLevel, StyleMask, TrackingAreaOptions,
+    WebviewWindowExt,
 };
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativePointerPayload {
+    inside: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    x: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    y: Option<f64>,
+}
+
+fn hover_tracking_options() -> TrackingAreaOptions {
+    TrackingAreaOptions::new()
+        .active_always()
+        .mouse_entered_and_exited()
+        .mouse_moved()
+        .in_visible_rect()
+}
 
 tauri_panel! {
     panel!(TokenHaloPanel {
         config: {
             can_become_key_window: true,
             can_become_main_window: false,
+            becomes_key_only_if_needed: true,
             is_floating_panel: true,
             hides_on_deactivate: false
         }
     })
+
+    panel_event!(TokenHaloPanelEventHandler {})
+}
+
+fn install_hover_tracking_area<R: tauri::Runtime>(
+    panel: &dyn Panel<R>,
+    owner: &tauri_nspanel::AnyObject,
+) {
+    unsafe {
+        let content_view = panel.content_view();
+        let bounds: tauri_nspanel::objc2_foundation::NSRect =
+            tauri_nspanel::objc2::msg_send![&*content_view, bounds];
+        let alloc: *mut NSTrackingArea =
+            tauri_nspanel::objc2::msg_send![NSTrackingArea::class(), alloc];
+        let tracking_area_ptr: *mut NSTrackingArea = tauri_nspanel::objc2::msg_send![
+            alloc,
+            initWithRect: bounds,
+            options: hover_tracking_options().value(),
+            owner: owner,
+            userInfo: tauri_nspanel::objc2::ffi::nil
+        ];
+        let tracking_area = tauri_nspanel::objc2::rc::Retained::from_raw(tracking_area_ptr)
+            .expect("NSTrackingArea initialization must succeed");
+        let _: () =
+            tauri_nspanel::objc2::msg_send![&*content_view, addTrackingArea: &*tracking_area];
+    }
+}
+
+fn pointer_is_inside_panel<R: tauri::Runtime>(panel: &dyn Panel<R>) -> bool {
+    let pointer = tauri_nspanel::objc2_app_kit::NSEvent::mouseLocation();
+    tauri_nspanel::objc2_foundation::NSPointInRect(pointer, panel.as_panel().frame())
+}
+
+fn native_pointer_payload<R: tauri::Runtime>(
+    event: &tauri_nspanel::objc2_app_kit::NSEvent,
+    panel: &dyn Panel<R>,
+) -> NativePointerPayload {
+    let location = event.locationInWindow();
+    let content_height = panel.content_view().bounds().size.height;
+    NativePointerPayload {
+        inside: true,
+        x: Some(location.x),
+        y: Some((content_height - location.y).max(0.0)),
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -29,10 +95,7 @@ fn desired_policy(can_join_all_applications: bool) -> OverlayPolicy {
     desired_policy_for_surface(can_join_all_applications, true)
 }
 
-fn desired_policy_for_surface(
-    can_join_all_applications: bool,
-    resizable: bool,
-) -> OverlayPolicy {
+fn desired_policy_for_surface(can_join_all_applications: bool, resizable: bool) -> OverlayPolicy {
     let mut collection_behavior = CollectionBehavior::new()
         .full_screen_auxiliary()
         .can_join_all_spaces();
@@ -74,6 +137,48 @@ pub fn configure(app: &mut tauri::App) -> tauri::Result<()> {
             ))
         })?;
         let panel = window.to_panel::<TokenHaloPanel>()?;
+        let handler = TokenHaloPanelEventHandler::new();
+        let enter_handle = app.handle().clone();
+        let enter_label = label.to_string();
+        handler.on_mouse_entered(move |event| {
+            if let Ok(panel) = enter_handle.get_webview_panel(&enter_label) {
+                let _ = enter_handle.emit_to(
+                    &enter_label,
+                    "task-toast-native-pointer",
+                    native_pointer_payload(event, panel.as_ref()),
+                );
+            }
+        });
+        let exit_handle = app.handle().clone();
+        let exit_label = label.to_string();
+        handler.on_mouse_exited(move |_| {
+            if let Ok(panel) = exit_handle.get_webview_panel(&exit_label) {
+                if pointer_is_inside_panel(panel.as_ref()) {
+                    return;
+                }
+                let _ = exit_handle.emit_to(
+                    &exit_label,
+                    "task-toast-native-pointer",
+                    NativePointerPayload {
+                        inside: false,
+                        x: None,
+                        y: None,
+                    },
+                );
+                panel.resign_key_window();
+            }
+        });
+        let move_handle = app.handle().clone();
+        let move_label = label.to_string();
+        handler.on_mouse_moved(move |event| {
+            if let Ok(panel) = move_handle.get_webview_panel(&move_label) {
+                let _ = move_handle.emit_to(
+                    &move_label,
+                    "task-toast-native-pointer",
+                    native_pointer_payload(event, panel.as_ref()),
+                );
+            }
+        });
         let can_join_all_applications = supports_join_all_applications();
         let policy = if resizable {
             desired_policy(can_join_all_applications)
@@ -86,6 +191,10 @@ pub fn configure(app: &mut tauri::App) -> tauri::Result<()> {
         panel.set_collection_behavior(policy.collection_behavior.into());
         panel.set_hides_on_deactivate(policy.hides_on_deactivate);
         panel.set_floating_panel(true);
+        panel.set_works_when_modal(true);
+        panel.set_accepts_mouse_moved_events(true);
+        panel.set_event_handler(Some(handler.as_ref()));
+        install_hover_tracking_area(panel.as_ref(), &*handler);
         if label == "widget" {
             panel.show();
         } else {
@@ -99,6 +208,17 @@ pub fn configure(app: &mut tauri::App) -> tauri::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hover_tracking_stays_active_while_another_app_is_frontmost() {
+        use tauri_nspanel::objc2_app_kit::NSTrackingAreaOptions;
+
+        let options = hover_tracking_options().value();
+
+        assert!(options.contains(NSTrackingAreaOptions::ActiveAlways));
+        assert!(options.contains(NSTrackingAreaOptions::MouseEnteredAndExited));
+    }
+
     #[test]
     fn policy_is_nonactivating_floating_and_fullscreen_auxiliary() {
         let policy = desired_policy(true);
@@ -138,10 +258,7 @@ mod tests {
         let policy = desired_policy_for_surface(false, false);
 
         assert_eq!(policy.level, PanelLevel::Floating);
-        assert_eq!(
-            policy.style_mask,
-            StyleMask::empty().nonactivating_panel()
-        );
+        assert_eq!(policy.style_mask, StyleMask::empty().nonactivating_panel());
         assert!(!policy.hides_on_deactivate);
     }
 }

@@ -160,6 +160,7 @@ function deferred<T>() {
 }
 
 let emitPreferences: (preferences: WidgetPreferences) => void = () => undefined;
+let emitNativePointer: (payload: { inside: boolean }) => void = () => undefined;
 
 describe("App page switching", () => {
   beforeEach(() => {
@@ -173,8 +174,10 @@ describe("App page switching", () => {
     mocks.testTaskCompanionNotification.mockReset().mockResolvedValue(undefined);
     mocks.listenDesktopEvents.mockReset().mockImplementation(async ({
       onPreferences,
+      onNativePointer,
     }) => {
       emitPreferences = onPreferences;
+      emitNativePointer = onNativePointer;
       return () => undefined;
     });
     mocks.setAlwaysOnTop.mockReset();
@@ -492,6 +495,24 @@ describe("App page switching", () => {
     });
 
     fireEvent.mouseLeave(statsCard.closest("main") as HTMLElement);
+    await waitFor(() => {
+      expect(mocks.setWidgetMode).toHaveBeenLastCalledWith("compact");
+      expect(screen.getByLabelText(/5 小时额度剩余 74%/)).toBeInTheDocument();
+    });
+  });
+
+  it("expands and collapses the orb from native pointer events while another app is active", async () => {
+    setWindowSide(100);
+    render(<App />);
+
+    await screen.findByLabelText(/5 小时额度剩余 74%/);
+    emitNativePointer({ inside: true });
+    await waitFor(() => {
+      expect(mocks.setWidgetMode).toHaveBeenCalledWith("quota");
+      expect(screen.getByText("CODEX · 剩余额度")).toBeInTheDocument();
+    });
+
+    emitNativePointer({ inside: false });
     await waitFor(() => {
       expect(mocks.setWidgetMode).toHaveBeenLastCalledWith("compact");
       expect(screen.getByLabelText(/5 小时额度剩余 74%/)).toBeInTheDocument();

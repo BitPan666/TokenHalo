@@ -153,12 +153,21 @@ export async function setWidgetExpanded(expanded: boolean): Promise<void> {
 export async function listenDesktopEvents(handlers: {
   onPreferences: (value: WidgetPreferences) => void;
   onRefresh: () => void;
+  onNativePointer?: (payload: TaskToastNativePointer) => void;
 }): Promise<() => void> {
   if (!isTauri()) return () => undefined;
   const { listen } = await import("@tauri-apps/api/event");
   const unlistenPreferences = await listen<WidgetPreferences>("preferences-changed", (event) => handlers.onPreferences(event.payload));
   const unlistenRefresh = await listen("refresh-requested", handlers.onRefresh);
-  return () => { unlistenPreferences(); unlistenRefresh(); };
+  const unlistenNativePointer = await listen<TaskToastNativePointer>(
+    "task-toast-native-pointer",
+    (event) => handlers.onNativePointer?.(event.payload),
+  );
+  return () => {
+    unlistenPreferences();
+    unlistenRefresh();
+    unlistenNativePointer();
+  };
 }
 
 async function getTaskToastWindowController(): Promise<TaskToastWindowController> {
@@ -225,9 +234,16 @@ export async function hideTaskToast() {
   await (await getTaskToastWindowController()).hide();
 }
 
+export interface TaskToastNativePointer {
+  inside: boolean;
+  x?: number;
+  y?: number;
+}
+
 export async function listenTaskToastSurfaceEvents(handlers: {
   onDisplay: (payload: TaskToastDisplayPayload) => void;
   onHide: () => void;
+  onNativePointer?: (payload: TaskToastNativePointer) => void;
 }): Promise<() => void> {
   if (!isTauri()) return () => undefined;
   const { listen } = await import("@tauri-apps/api/event");
@@ -236,9 +252,14 @@ export async function listenTaskToastSurfaceEvents(handlers: {
     (event) => handlers.onDisplay(event.payload),
   );
   const unlistenHide = await listen("task-toast-hide", handlers.onHide);
+  const unlistenNativePointer = await listen<TaskToastNativePointer>(
+    "task-toast-native-pointer",
+    (event) => handlers.onNativePointer?.(event.payload),
+  );
   return () => {
     unlistenDisplay();
     unlistenHide();
+    unlistenNativePointer();
   };
 }
 

@@ -20,6 +20,7 @@ import {
 import type { ToastDirection } from "../lib/taskToastPlacement";
 import type { TaskToastStackGrowth } from "../lib/taskToastPlacement";
 import type { TaskToastGroupLayout } from "../lib/taskToastWindow";
+import type { TaskToastNativePointer } from "../lib/bridge";
 
 interface TaskStatusGroupStackProps {
   groups: TaskStatusGroup[];
@@ -27,6 +28,7 @@ interface TaskStatusGroupStackProps {
   growth?: TaskToastStackGrowth;
   language: Language;
   reducedMotion?: boolean;
+  nativePointer?: TaskToastNativePointer | null;
   onOpen: (threadId: string) => void;
   onDismiss: (threadId: string) => void;
   onPostpone: (threadId: string) => void;
@@ -41,6 +43,7 @@ interface GroupedTaskCardProps {
   language: Language;
   expandable: boolean;
   compact: boolean;
+  nativeHovered: boolean;
   onExpand: () => void;
   onOpen: () => void;
   onDismiss: () => void;
@@ -73,6 +76,7 @@ function GroupedTaskCard({
   language,
   expandable,
   compact,
+  nativeHovered,
   onExpand,
   onOpen,
   onDismiss,
@@ -84,7 +88,7 @@ function GroupedTaskCard({
   const statusLabel = taskStatusGroupLabel(status, count, language);
   const singleStatusLabel = taskStatusGroupLabel(status, 1, language);
   const duration = formatTaskDuration(entry.event.durationMs);
-  const actionsVisible = !compact && (hovered || focused);
+  const actionsVisible = !compact && (hovered || focused || nativeHovered);
   const copy = actionCopy[language];
 
   return (
@@ -94,6 +98,7 @@ function GroupedTaskCard({
       aria-label={`${singleStatusLabel}：${title}`}
       data-compact={compact}
       data-glass="extra-strong-blur"
+      data-task-thread-id={entry.event.threadId}
       tabIndex={0}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -173,6 +178,7 @@ export function TaskStatusGroupStack({
   growth,
   language,
   reducedMotion = false,
+  nativePointer = null,
   onOpen,
   onDismiss,
   onPostpone,
@@ -183,6 +189,7 @@ export function TaskStatusGroupStack({
   const collapseTimerRef = useRef<number | null>(null);
   const [outerExpanded, setOuterExpanded] = useState(false);
   const [expandedStatus, setExpandedStatus] = useState<TaskCompanionStatus | null>(null);
+  const [nativeHoveredThreadId, setNativeHoveredThreadId] = useState<string | null>(null);
   const visibleGroups = outerExpanded ? groups.slice(0, 4) : groups.slice(0, 1);
   const taskCount = groups.reduce((total, group) => total + group.entries.length, 0);
   const groupCount = groups.length;
@@ -212,6 +219,25 @@ export function TaskStatusGroupStack({
   };
 
   useEffect(() => () => cancelCollapse(), []);
+
+  useEffect(() => {
+    if (!nativePointer) return;
+    if (!nativePointer.inside) {
+      setNativeHoveredThreadId(null);
+      scheduleCollapse();
+      return;
+    }
+
+    expandOuter();
+    const fallbackThreadId = groups[0]?.entries[0]?.event.threadId ?? null;
+    if (nativePointer.x === undefined || nativePointer.y === undefined) {
+      setNativeHoveredThreadId(fallbackThreadId);
+      return;
+    }
+    const target = document.elementFromPoint?.(nativePointer.x, nativePointer.y)
+      ?.closest<HTMLElement>("[data-task-thread-id]");
+    setNativeHoveredThreadId(target?.dataset.taskThreadId ?? fallbackThreadId);
+  }, [nativePointer]);
 
   useEffect(() => {
     if (expandedStatus && !groups.some((group) => group.status === expandedStatus)) {
@@ -289,6 +315,7 @@ export function TaskStatusGroupStack({
                     language={language}
                     expandable={false}
                     compact={false}
+                    nativeHovered={nativeHoveredThreadId === entry.event.threadId}
                     onExpand={() => undefined}
                     onOpen={() => onOpen(entry.event.threadId)}
                     onDismiss={() => onDismiss(entry.event.threadId)}
@@ -313,6 +340,7 @@ export function TaskStatusGroupStack({
                   language={language}
                   expandable={group.entries.length > 1}
                   compact={expandedStatus !== null}
+                  nativeHovered={nativeHoveredThreadId === topEntry.event.threadId}
                   onExpand={() => {
                     expandOuter();
                     setExpandedStatus(group.status);

@@ -4,6 +4,7 @@ import { TaskStatusGroupStack } from "./components/TaskStatusGroupStack";
 import {
   emitTaskToastAction,
   listenTaskToastSurfaceEvents,
+  type TaskToastNativePointer,
 } from "./lib/bridge";
 import type {
   TaskToastActionPayload,
@@ -15,6 +16,7 @@ export interface TaskToastAppBridge {
   listen: (handlers: {
     onDisplay: (payload: TaskToastDisplayPayload) => void;
     onHide: () => void;
+    onNativePointer?: (payload: TaskToastNativePointer) => void;
   }) => Promise<() => void>;
   emitAction: (payload: TaskToastActionPayload) => Promise<void>;
 }
@@ -26,6 +28,7 @@ const defaultBridge: TaskToastAppBridge = {
 
 export function TaskToastApp({ bridge = defaultBridge }: { bridge?: TaskToastAppBridge }) {
   const [display, setDisplay] = useState<TaskToastDisplayPayload | null>(null);
+  const [nativePointer, setNativePointer] = useState<TaskToastNativePointer | null>(null);
   const emitLayout = useCallback((layout: NonNullable<Extract<
     TaskToastActionPayload,
     { type: "setGroupLayout" }
@@ -51,7 +54,9 @@ export function TaskToastApp({ bridge = defaultBridge }: { bridge?: TaskToastApp
       },
       onHide: () => {
         setDisplay(null);
+        setNativePointer(null);
       },
+      onNativePointer: setNativePointer,
     }).then((stop) => {
       if (disposed) stop();
       else unlisten = stop;
@@ -80,6 +85,7 @@ export function TaskToastApp({ bridge = defaultBridge }: { bridge?: TaskToastApp
         direction={display.direction}
         growth={display.growth}
         language={display.language}
+        nativePointer={nativePointer}
         onLayoutChange={emitLayout}
         onOpen={openTask}
         onDismiss={dismissTask}

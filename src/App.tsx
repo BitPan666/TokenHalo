@@ -79,6 +79,8 @@ export default function App() {
   const externalPreferencesChangedRef = useRef(false);
   const deferredHoverRef = useRef(false);
   const expandSuppressedUntilLeaveRef = useRef(false);
+  const nativeHoverHandlerRef = useRef<(inside: boolean) => void>(() => undefined);
+  const nativePointerInsideRef = useRef(false);
   const displayIntentRef = useRef<DisplayIntent>({
     generation: 0,
     compact: initialCompact,
@@ -301,7 +303,11 @@ export default function App() {
       if (acquirePreferenceMutation()) {
         void finishPreferenceMutation();
       }
-    }, onRefresh: () => void refresh(true) }).then((value) => {
+    }, onRefresh: () => void refresh(true), onNativePointer: (payload) => {
+      if (nativePointerInsideRef.current === payload.inside) return;
+      nativePointerInsideRef.current = payload.inside;
+      nativeHoverHandlerRef.current(payload.inside);
+    } }).then((value) => {
       if (cancelled) value(); else cleanup = value;
     }).catch(() => setOperationNotice("desktopEventListenerFailed"));
     return () => { cancelled = true; cleanup(); };
@@ -560,6 +566,7 @@ export default function App() {
       }
     })();
   }, [refresh]);
+  nativeHoverHandlerRef.current = (inside) => handleHover(inside);
 
   const collapseExplicitly = useCallback(() => {
     expandSuppressedUntilLeaveRef.current = true;

@@ -626,30 +626,72 @@ fn emit_test_task_companion_event(app: AppHandle) -> Result<(), String> {
     .map_err(|_| "failed to send test notification".to_string())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CodexOpenRequest {
+    app_identifier: &'static str,
+    deep_link: String,
+}
+
+fn try_codex_open_request(thread_id: &str) -> Option<CodexOpenRequest> {
+    let thread_id = thread_id.trim();
+    if thread_id.is_empty() {
+        return None;
+    }
+    Some(CodexOpenRequest {
+        app_identifier: "com.openai.codex",
+        deep_link: format!("codex://threads/{thread_id}"),
+    })
+}
+
 #[tauri::command]
-fn open_codex_task(_thread_id: String) -> &'static str {
+fn open_codex_task(thread_id: String) -> &'static str {
     use std::process::Command;
+    let Some(request) = try_codex_open_request(&thread_id) else {
+        return "unavailable";
+    };
     #[cfg(target_os = "macos")]
     let mut command = {
         let mut command = Command::new("open");
-        command.arg("codex://");
+        command.args(["-b", request.app_identifier, request.deep_link.as_str()]);
         command
     };
     #[cfg(target_os = "windows")]
     let mut command = {
         let mut command = Command::new("cmd");
-        command.args(["/C", "start", "", "codex://"]);
+        command.args(["/C", "start", "", request.deep_link.as_str()]);
         command
     };
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     let mut command = {
         let mut command = Command::new("xdg-open");
-        command.arg("codex://");
+        command.arg(request.deep_link.as_str());
         command
     };
     match command.status() {
-        Ok(status) if status.success() => "openedApp",
+        Ok(status) if status.success() => "openedTask",
         _ => "unavailable",
+    }
+}
+
+#[cfg(test)]
+mod codex_open_tests {
+    use super::*;
+
+    #[test]
+    fn codex_open_request_targets_the_selected_task() {
+        let request = try_codex_open_request("0198fd40-41a5-7c73-a534-d0108223a815")
+            .expect("valid task ID should create an open request");
+
+        assert_eq!(request.app_identifier, "com.openai.codex");
+        assert_eq!(
+            request.deep_link,
+            "codex://threads/0198fd40-41a5-7c73-a534-d0108223a815"
+        );
+    }
+
+    #[test]
+    fn codex_open_request_rejects_an_empty_task_id() {
+        assert!(try_codex_open_request("   ").is_none());
     }
 }
 
