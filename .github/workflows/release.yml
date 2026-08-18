@@ -65,6 +65,8 @@ jobs:
           releaseBody: |
             ## Experience build
 
+            - Fixes floating-orb and task-capsule hover interactions while another macOS app is active, without taking keyboard focus away from your work.
+            - Opens the selected Codex task directly and switches to Codex even when it is on another macOS desktop.
             - Adds the pet-style multi-task capsule stack beside the floating orb.
             - Shows the newest notification from the highest-priority status by default, with visible back layers when more tasks are waiting.
             - Hover or focus the stack to reveal up to four task statuses; click a repeated status to expand the tasks inside it.
