@@ -10,8 +10,39 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Cancel superseded release runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_BRANCH: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          gh api "repos/$GH_REPO/actions/runs?branch=$RELEASE_BRANCH&per_page=30" \
+            --jq ".workflow_runs[] | select(.path == \".github/workflows/release.yml\" and .id < $GITHUB_RUN_ID and .status != \"completed\") | .id" \
+            | while read -r run_id; do
+              gh api --method POST "repos/$GH_REPO/actions/runs/$run_id/cancel"
+            done
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+
   publish:
+    needs: preflight
     outputs:
       release_tag: ${{ steps.version.outputs.tag }}
     strategy:
