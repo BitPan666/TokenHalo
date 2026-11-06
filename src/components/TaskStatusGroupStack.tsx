@@ -43,7 +43,7 @@ interface GroupedTaskCardProps {
   language: Language;
   expandable: boolean;
   compact: boolean;
-  nativeHovered: boolean;
+  nativeHovered: boolean | null;
   onExpand: () => void;
   onOpen: () => void;
   onDismiss: () => void;
@@ -88,7 +88,7 @@ function GroupedTaskCard({
   const statusLabel = taskStatusGroupLabel(status, count, language);
   const singleStatusLabel = taskStatusGroupLabel(status, 1, language);
   const duration = formatTaskDuration(entry.event.durationMs);
-  const actionsVisible = !compact && (hovered || focused || nativeHovered);
+  const actionsVisible = !compact && ((focused && document.hasFocus()) || (nativeHovered ?? hovered));
   const copy = actionCopy[language];
 
   return (
@@ -211,9 +211,11 @@ export function TaskStatusGroupStack({
   };
 
   const scheduleCollapse = () => {
+    if (nativePointer?.inside) return;
     cancelCollapse();
     collapseTimerRef.current = window.setTimeout(() => {
       collapseTimerRef.current = null;
+      if (document.hasFocus() && rootRef.current?.contains(document.activeElement)) return;
       closeAllLayers();
     }, 160);
   };
@@ -266,7 +268,7 @@ export function TaskStatusGroupStack({
       role="group"
       aria-label={ariaLabel}
       tabIndex={-1}
-      onMouseEnter={expandOuter}
+      onMouseEnter={() => { if (!nativePointer) expandOuter(); }}
       onMouseLeave={scheduleCollapse}
       onFocusCapture={expandOuter}
       onBlurCapture={(event) => {
@@ -315,7 +317,7 @@ export function TaskStatusGroupStack({
                     language={language}
                     expandable={false}
                     compact={false}
-                    nativeHovered={nativeHoveredThreadId === entry.event.threadId}
+                    nativeHovered={nativePointer ? nativeHoveredThreadId === entry.event.threadId : null}
                     onExpand={() => undefined}
                     onOpen={() => onOpen(entry.event.threadId)}
                     onDismiss={() => onDismiss(entry.event.threadId)}
@@ -340,7 +342,7 @@ export function TaskStatusGroupStack({
                   language={language}
                   expandable={group.entries.length > 1}
                   compact={expandedStatus !== null}
-                  nativeHovered={nativeHoveredThreadId === topEntry.event.threadId}
+                  nativeHovered={nativePointer ? nativeHoveredThreadId === topEntry.event.threadId : null}
                   onExpand={() => {
                     expandOuter();
                     setExpandedStatus(group.status);

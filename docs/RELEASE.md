@@ -15,14 +15,16 @@ macOS 包使用 Universal 构建，同时支持 Apple Silicon 和 Intel Mac。
 
 ## 发布一个 GitHub 下载版本
 
-推送 `v*` tag 会触发 `.github/workflows/release.yml`，构建 Windows unsigned 包和 macOS Universal unsigned 包，并上传到草稿 GitHub Release。
+推送 `v*` tag 会触发 `.github/workflows/release.yml`，运行测试、构建 Windows 安装包和 macOS Universal 安装包，并上传到草稿 GitHub Release。
+
+也可以推送与应用版本一致的 `codex/release-<版本号>` 分支。工作流会把该提交作为发布目标并创建对应的 `v<版本号>` 标签；例如 `codex/release-0.1.8` 对应 `v0.1.8`。版本校验会拒绝名称与应用版本不一致的发布分支或标签。
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-工作流完成后，到 GitHub Releases 检查草稿发布，确认说明和附件后手动发布。
+两个平台的构建任务均成功后，`finalize` 任务会核对非空的 `.dmg`、`.exe`、`.msi` 和 `.app.tar.gz` 附件，再自动公开发布。正式版本会设为 Latest；带 `-` 的版本保留为预发布，不改变正式更新入口。任一构建失败时，Release 保留为草稿。
 
 ## CI 与构建
 

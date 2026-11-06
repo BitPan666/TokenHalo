@@ -70,6 +70,67 @@ afterEach(() => {
 });
 
 describe("TaskStatusGroupStack", () => {
+  it("keeps the stack expanded when DOM leave conflicts with the native pointer", () => {
+    vi.useFakeTimers();
+    render(<TaskStatusGroupStack {...props({ nativePointer: { inside: true } })} />);
+    const stack = screen.getByRole("group", { name: "4 种任务状态，9 个任务" });
+    fireEvent.mouseLeave(stack);
+    act(() => vi.advanceTimersByTime(200));
+
+    expect(stack).toHaveAttribute("data-outer-expanded", "true");
+  });
+
+  it("ignores DOM enter when the native pointer is outside", () => {
+    render(<TaskStatusGroupStack {...props({ nativePointer: { inside: false } })} />);
+    const stack = screen.getByRole("group", { name: "4 种任务状态，9 个任务" });
+    fireEvent.mouseEnter(stack);
+
+    expect(stack).toHaveAttribute("data-outer-expanded", "false");
+  });
+
+  it("clears stale DOM hover actions when the native pointer leaves", () => {
+    const baseProps = props();
+    const { rerender } = render(<TaskStatusGroupStack {...baseProps} />);
+    fireEvent.mouseEnter(screen.getByRole("status", { name: "需要处理：确认安装权限" }));
+    expect(screen.getByRole("button", { name: "前往 Codex" })).toBeInTheDocument();
+
+    rerender(<TaskStatusGroupStack {...baseProps} nativePointer={{ inside: false }} />);
+
+    expect(screen.queryByRole("button", { name: "前往 Codex" })).not.toBeInTheDocument();
+  });
+
+  it("keeps keyboard-focused tasks expanded after the native pointer leaves", () => {
+    vi.useFakeTimers();
+    const baseProps = props();
+    const { rerender } = render(<TaskStatusGroupStack {...baseProps} nativePointer={{ inside: true }} />);
+    const card = screen.getByRole("status", { name: "需要处理：确认安装权限" });
+    act(() => card.focus());
+    rerender(<TaskStatusGroupStack {...baseProps} nativePointer={{ inside: false }} />);
+    act(() => vi.advanceTimersByTime(200));
+
+    expect(screen.getByRole("group", { name: "4 种任务状态，9 个任务" }))
+      .toHaveAttribute("data-outer-expanded", "true");
+    expect(screen.getByRole("button", { name: "前往 Codex" })).toBeInTheDocument();
+  });
+
+  it("collapses after native window blur even if the last card remains the active element", () => {
+    vi.useFakeTimers();
+    const baseProps = props();
+    const { rerender } = render(<TaskStatusGroupStack {...baseProps} nativePointer={{ inside: true }} />);
+    act(() => screen.getByRole("status", { name: "需要处理：确认安装权限" }).focus());
+    const focus = vi.spyOn(document, "hasFocus").mockReturnValue(false);
+    try {
+      rerender(<TaskStatusGroupStack {...baseProps} nativePointer={{ inside: false }} />);
+      act(() => vi.advanceTimersByTime(200));
+
+      expect(screen.getByRole("group", { name: "4 种任务状态，9 个任务" }))
+        .toHaveAttribute("data-outer-expanded", "false");
+      expect(screen.queryByRole("button", { name: "前往 Codex" })).not.toBeInTheDocument();
+    } finally {
+      focus.mockRestore();
+    }
+  });
+
   it("shows back layers when the collapsed card is hiding tasks from other statuses", () => {
     const onePerStatus = entries.filter((item) => (
       item.event.threadId === "input-a"

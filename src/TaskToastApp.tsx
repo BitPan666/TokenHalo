@@ -3,6 +3,7 @@ import { TaskPermissionToast } from "./components/TaskPermissionToast";
 import { TaskStatusGroupStack } from "./components/TaskStatusGroupStack";
 import {
   emitTaskToastAction,
+  getTaskToastPointer,
   listenTaskToastSurfaceEvents,
   type TaskToastNativePointer,
 } from "./lib/bridge";
@@ -19,12 +20,23 @@ export interface TaskToastAppBridge {
     onNativePointer?: (payload: TaskToastNativePointer) => void;
   }) => Promise<() => void>;
   emitAction: (payload: TaskToastActionPayload) => Promise<void>;
+  readPointer?: () => Promise<TaskToastNativePointer>;
 }
 
 const defaultBridge: TaskToastAppBridge = {
   listen: listenTaskToastSurfaceEvents,
   emitAction: emitTaskToastAction,
+  readPointer: getTaskToastPointer,
 };
+
+function samePointer(
+  previous: TaskToastNativePointer | null,
+  next: TaskToastNativePointer,
+) {
+  return previous?.inside === next.inside
+    && previous?.x === next.x
+    && previous?.y === next.y;
+}
 
 export function TaskToastApp({ bridge = defaultBridge }: { bridge?: TaskToastAppBridge }) {
   const [display, setDisplay] = useState<TaskToastDisplayPayload | null>(null);
@@ -44,19 +56,23 @@ export function TaskToastApp({ bridge = defaultBridge }: { bridge?: TaskToastApp
   const postponeTask = useCallback((threadId: string) => {
     void bridge.emitAction({ type: "postpone", threadId });
   }, [bridge]);
+  const updateNativePointer = useCallback((pointer: TaskToastNativePointer) => {
+    setNativePointer((previous) => samePointer(previous, pointer) ? previous : pointer);
+  }, []);
 
   useEffect(() => {
     let disposed = false;
     let unlisten: () => void = () => undefined;
     void bridge.listen({
       onDisplay: (payload) => {
+        setNativePointer(null);
         setDisplay(payload);
       },
       onHide: () => {
         setDisplay(null);
         setNativePointer(null);
       },
-      onNativePointer: setNativePointer,
+      onNativePointer: updateNativePointer,
     }).then((stop) => {
       if (disposed) stop();
       else unlisten = stop;
@@ -65,7 +81,32 @@ export function TaskToastApp({ bridge = defaultBridge }: { bridge?: TaskToastApp
       disposed = true;
       unlisten();
     };
-  }, [bridge]);
+  }, [bridge, updateNativePointer]);
+
+  useEffect(() => {
+    if (!display || display.kind === "permission" || !bridge.readPointer) return;
+    let cancelled = false;
+    let pending = false;
+    const readPointer = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const pointer = await bridge.readPointer!();
+        if (cancelled) return;
+        setNativePointer((previous) => samePointer(previous, pointer) ? previous : pointer);
+      } catch {
+        // Native enter/exit events remain available if a pointer read briefly fails.
+      } finally {
+        pending = false;
+      }
+    };
+    void readPointer();
+    const interval = window.setInterval(() => void readPointer(), 120);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [bridge, display]);
 
   if (!display) return null;
   if (display.kind === "permission") {

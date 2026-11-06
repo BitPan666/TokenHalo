@@ -60,6 +60,12 @@ export async function getWidgetPointerInside(): Promise<boolean> {
   return invoke<boolean>("get_widget_pointer_inside");
 }
 
+export async function getTaskToastPointer(): Promise<TaskToastNativePointer> {
+  if (!isTauri()) return { inside: false };
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<TaskToastNativePointer>("get_task_toast_pointer");
+}
+
 export async function updatePreferences(value: WidgetPreferences): Promise<void> {
   if (!isTauri()) return;
   const { invoke } = await import("@tauri-apps/api/core");

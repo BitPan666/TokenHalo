@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TaskToastDisplayPayload } from "./lib/taskToastWindow";
 import { TaskToastApp, type TaskToastAppBridge } from "./TaskToastApp";
@@ -80,9 +80,83 @@ const groupedPayload: TaskToastDisplayPayload = {
   ],
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe("TaskToastApp", () => {
+  it("does not restart collapse when the desktop watchdog repeats an outside pointer state", async () => {
+    vi.useFakeTimers();
+    let show: ((value: TaskToastDisplayPayload) => void) | undefined;
+    let nativePointer: ((value: { inside: boolean; x?: number; y?: number }) => void) | undefined;
+    const bridge: TaskToastAppBridge = {
+      listen: vi.fn(async (handlers) => {
+        show = handlers.onDisplay;
+        nativePointer = handlers.onNativePointer;
+        return () => undefined;
+      }),
+      emitAction: vi.fn(async () => undefined),
+    };
+    render(<TaskToastApp bridge={bridge} />);
+    await act(async () => Promise.resolve());
+
+    act(() => show?.(groupedPayload));
+    act(() => nativePointer?.({ inside: true, x: 120, y: 48 }));
+    expect(screen.getByRole("group", { name: "4 task statuses, 5 tasks" }))
+      .toHaveAttribute("data-outer-expanded", "true");
+
+    act(() => nativePointer?.({ inside: false }));
+    act(() => vi.advanceTimersByTime(120));
+    act(() => nativePointer?.({ inside: false }));
+    act(() => vi.advanceTimersByTime(40));
+
+    expect(screen.getByRole("group", { name: "4 task statuses, 5 tasks" }))
+      .toHaveAttribute("data-outer-expanded", "false");
+  });
+
+  it("polls the desktop pointer so an inactive capsule expands, reveals actions, and collapses", async () => {
+    vi.useFakeTimers();
+    let show: ((value: TaskToastDisplayPayload) => void) | undefined;
+    let pointer = { inside: false } as { inside: boolean; x?: number; y?: number };
+    const bridge: TaskToastAppBridge = {
+      listen: vi.fn(async (handlers) => {
+        show = handlers.onDisplay;
+        return () => undefined;
+      }),
+      emitAction: vi.fn(async () => undefined),
+      readPointer: vi.fn(async () => pointer),
+    };
+    render(<TaskToastApp bridge={bridge} />);
+    await act(async () => Promise.resolve());
+
+    act(() => show?.(groupedPayload));
+    expect(screen.getByRole("group", { name: "4 task statuses, 5 tasks" }))
+      .toHaveAttribute("data-outer-expanded", "false");
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    pointer = { inside: true, x: 120, y: 48 };
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120);
+    });
+    expect(screen.getByRole("group", { name: "4 task statuses, 5 tasks" }))
+      .toHaveAttribute("data-outer-expanded", "true");
+    expect(screen.getByRole("button", { name: "Go to Codex" })).toBeInTheDocument();
+
+    pointer = { inside: false };
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(160);
+    });
+    expect(screen.getByRole("group", { name: "4 task statuses, 5 tasks" }))
+      .toHaveAttribute("data-outer-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Go to Codex" })).not.toBeInTheDocument();
+  });
+
   it("reveals the hovered task actions from native pointer events while another app is active", async () => {
     let show: ((value: TaskToastDisplayPayload) => void) | undefined;
     let nativePointer: ((value: { inside: boolean; x?: number; y?: number }) => void) | undefined;

@@ -661,6 +661,86 @@ fn get_widget_pointer_inside(app: AppHandle) -> bool {
     )
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TaskToastPointerState {
+    inside: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    x: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    y: Option<f64>,
+}
+
+fn task_toast_pointer_state(
+    pointer_x: f64,
+    pointer_y: f64,
+    rect_x: i32,
+    rect_y: i32,
+    rect_width: u32,
+    rect_height: u32,
+    scale_factor: f64,
+) -> TaskToastPointerState {
+    if !point_is_inside_rect(
+        pointer_x,
+        pointer_y,
+        rect_x,
+        rect_y,
+        rect_width,
+        rect_height,
+    ) {
+        return TaskToastPointerState::outside();
+    }
+    let scale_factor = scale_factor.max(f64::EPSILON);
+    TaskToastPointerState {
+        inside: true,
+        x: Some((pointer_x - f64::from(rect_x)) / scale_factor),
+        y: Some((pointer_y - f64::from(rect_y)) / scale_factor),
+    }
+}
+
+impl TaskToastPointerState {
+    fn outside() -> Self {
+        Self {
+            inside: false,
+            x: None,
+            y: None,
+        }
+    }
+}
+
+#[tauri::command]
+fn get_task_toast_pointer(app: AppHandle) -> TaskToastPointerState {
+    let Some(window) = app.get_webview_window("task-toast") else {
+        return TaskToastPointerState::outside();
+    };
+    let (Ok(pointer), Ok(position), Ok(size)) = (
+        app.cursor_position(),
+        window.outer_position(),
+        window.outer_size(),
+    ) else {
+        return TaskToastPointerState::outside();
+    };
+    task_toast_pointer_state(
+        pointer.x,
+        pointer.y,
+        position.x,
+        position.y,
+        size.width,
+        size.height,
+        window.scale_factor().unwrap_or(1.0),
+    )
+}
+
+fn start_task_toast_pointer_watchdog(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_millis(120)).await;
+            let pointer = get_task_toast_pointer(app.clone());
+            let _ = app.emit_to("task-toast", "task-toast-native-pointer", pointer);
+        }
+    });
+}
+
 #[cfg(test)]
 mod widget_pointer_tests {
     use super::*;
@@ -669,6 +749,22 @@ mod widget_pointer_tests {
     fn detects_when_the_pointer_has_left_a_resized_widget() {
         assert!(point_is_inside_rect(1900.0, 1000.0, 1824, 955, 320, 320));
         assert!(!point_is_inside_rect(1459.0, 894.0, 1824, 955, 320, 320));
+    }
+
+    #[test]
+    fn returns_logical_task_toast_coordinates_for_card_hit_testing() {
+        assert_eq!(
+            task_toast_pointer_state(4112.0, 1680.0, 4000, 1600, 544, 232, 2.0),
+            TaskToastPointerState {
+                inside: true,
+                x: Some(56.0),
+                y: Some(40.0),
+            }
+        );
+        assert_eq!(
+            task_toast_pointer_state(3999.0, 1680.0, 4000, 1600, 544, 232, 2.0),
+            TaskToastPointerState::outside()
+        );
     }
 }
 
@@ -896,6 +992,7 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "macos")]
             macos_overlay::configure(app)?;
+            start_task_toast_pointer_watchdog(app.handle().clone());
 
             let data_dir = app.path().app_config_dir()?;
             let preferences_path = data_dir.join("preferences.json");
@@ -975,6 +1072,7 @@ pub fn run() {
             open_release_page,
             get_codex_foreground,
             get_widget_pointer_inside,
+            get_task_toast_pointer,
             get_task_companion_connection,
             connect_task_companion,
             disconnect_task_companion,

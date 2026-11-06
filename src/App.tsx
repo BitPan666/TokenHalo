@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QuotaCard, QuotaOrb } from "./components/QuotaCard";
 import { TokenStatsCard } from "./components/TokenStatsCard";
 import type { AppearanceSection } from "./components/AppearanceSheet";
-import { fetchSnapshots, getCodexForeground, getPreferences, getWidgetPointerInside, listenDesktopEvents, setAlwaysOnTop, setWidgetMode, startDragging, updatePreferences } from "./lib/bridge";
+import { fetchSnapshots, getCodexForeground, getPreferences, getWidgetPointerInside, isTauri, listenDesktopEvents, setAlwaysOnTop, setWidgetMode, startDragging, updatePreferences } from "./lib/bridge";
 import { needsFastRefresh } from "./lib/format";
 import { copy, nextLanguage, normalizeLanguage } from "./lib/i18n";
 import { mergeSnapshots } from "./lib/snapshots";
@@ -70,7 +70,6 @@ export default function App() {
     "appearance",
   );
   const [codexForeground, setCodexForeground] = useState(false);
-  const [nativePointerInside, setNativePointerInside] = useState(false);
   const failures = useRef(0);
   const preferencesRef = useRef(preferences);
   const preferencesReadyRef = useRef(false);
@@ -81,7 +80,8 @@ export default function App() {
   const deferredHoverRef = useRef(false);
   const expandSuppressedUntilLeaveRef = useRef(false);
   const nativeHoverHandlerRef = useRef<(inside: boolean) => void>(() => undefined);
-  const nativePointerInsideRef = useRef(false);
+  const checkDesktopPointerRef = useRef<() => void>(() => undefined);
+  const widgetModePendingRef = useRef(0);
   const displayIntentRef = useRef<DisplayIntent>({
     generation: 0,
     compact: initialCompact,
@@ -305,10 +305,8 @@ export default function App() {
         void finishPreferenceMutation();
       }
     }, onRefresh: () => void refresh(true), onNativePointer: (payload) => {
-      if (nativePointerInsideRef.current === payload.inside) return;
-      nativePointerInsideRef.current = payload.inside;
-      setNativePointerInside(payload.inside);
-      nativeHoverHandlerRef.current(payload.inside);
+      if (isTauri()) checkDesktopPointerRef.current();
+      else nativeHoverHandlerRef.current(payload.inside);
     } }).then((value) => {
       if (cancelled) value(); else cleanup = value;
     }).catch(() => setOperationNotice("desktopEventListenerFailed"));
@@ -519,6 +517,7 @@ export default function App() {
     }
     setHovered(value);
     if (!value) setSettingsOpen(false);
+    if (displayIntentRef.current.compact === !value) return;
     const generation = displayIntentRef.current.generation + 1;
     const intent: DisplayIntent = {
       generation,
@@ -533,6 +532,7 @@ export default function App() {
 
     setCompact(intent.compact);
     if (value) void refresh(true);
+    widgetModePendingRef.current += 1;
     void (async () => {
       try {
         await setWidgetMode(displayMode(intent, confirmedViewRef.current));
@@ -565,36 +565,56 @@ export default function App() {
             setOperationNotice("widgetCollapseRecoveryFailed");
           }
         }
+      } finally {
+        widgetModePendingRef.current -= 1;
       }
     })();
   }, [refresh]);
-  nativeHoverHandlerRef.current = (inside) => handleHover(inside);
+  nativeHoverHandlerRef.current = (inside) => {
+    if (preferencesRef.current.locked || (!inside && settingsOpen)) return;
+    handleHover(inside);
+  };
+
+  const handleSurfaceHover = useCallback((inside: boolean) => {
+    if (isTauri()) checkDesktopPointerRef.current();
+    else handleHover(inside);
+  }, [handleHover]);
 
   useEffect(() => {
-    if (!nativePointerInside) return;
+    if (!preferencesReady || !isTauri()) return;
     let cancelled = false;
     let pending = false;
-    const verifyPointerStillInside = async () => {
-      if (pending) return;
+    const reconcilePointer = async () => {
+      if (pending || widgetModePendingRef.current > 0 || preferenceMutationPendingRef.current) return;
       pending = true;
+      const generation = displayIntentRef.current.generation;
       try {
         const inside = await getWidgetPointerInside();
-        if (cancelled || inside || settingsOpen) return;
-        nativePointerInsideRef.current = false;
-        setNativePointerInside(false);
-        nativeHoverHandlerRef.current(false);
+        if (
+          cancelled
+          || widgetModePendingRef.current > 0
+          || preferenceMutationPendingRef.current
+          || generation !== displayIntentRef.current.generation
+        ) return;
+        nativeHoverHandlerRef.current(inside);
       } catch {
-        // Keep the native hover active and retry on the next short interval.
+        // Preserve the current display when a pointer read fails; retry next tick.
       } finally {
         pending = false;
       }
     };
-    const interval = window.setInterval(() => void verifyPointerStillInside(), 120);
+    // Events request a fresh sample rather than competing to set the display.
+    // Poll in both modes so a missed first enter cannot disable recovery.
+    const checkPointer = () => { void reconcilePointer(); };
+    checkDesktopPointerRef.current = checkPointer;
+    checkPointer();
+    const interval = window.setInterval(checkPointer, 120);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      checkDesktopPointerRef.current = () => undefined;
     };
-  }, [nativePointerInside, settingsOpen]);
+  }, [preferencesReady]);
 
   const collapseExplicitly = useCallback(() => {
     expandSuppressedUntilLeaveRef.current = true;
@@ -603,20 +623,25 @@ export default function App() {
 
   const prepareTaskCompanionTest = useCallback(async () => {
     const generation = displayIntentRef.current.generation + 1;
+    expandSuppressedUntilLeaveRef.current = true;
     displayIntentRef.current = { generation, compact: true };
     setHovered(false);
     setSettingsOpen(false);
     setCompact(true);
+    widgetModePendingRef.current += 1;
     try {
       await setWidgetMode("compact");
     } catch (error) {
       if (displayIntentRef.current.generation === generation) {
+        expandSuppressedUntilLeaveRef.current = false;
         displayIntentRef.current = { generation, compact: false };
         setCompact(false);
         setSettingsOpen(true);
         setOperationNotice("widgetCollapseFailed");
       }
       throw error;
+    } finally {
+      widgetModePendingRef.current -= 1;
     }
   }, []);
 
@@ -682,7 +707,7 @@ export default function App() {
   if (!current) return <div className="loading-card" aria-label={t.loadingQuota}><span /><span /><span /></div>;
 
   if (!preferencesReady || compact) {
-    return <QuotaOrb snapshot={current} language={language} onDrag={() => startDragging()} onHover={handleHover} taskStatus={taskCompanion.taskStatus} />;
+    return <QuotaOrb snapshot={current} language={language} onDrag={() => startDragging()} onHover={handleSurfaceHover} taskStatus={taskCompanion.taskStatus} />;
   }
 
   if (preferences.expandedView === "tokenStats") {
@@ -705,9 +730,9 @@ export default function App() {
     return (
       <div
         style={{ width: "100%", height: "100%", position: "relative" }}
-        onMouseEnter={() => handleHover(true)}
+        onMouseEnter={() => handleSurfaceHover(true)}
         onMouseLeave={() => {
-          if (!settingsOpen) handleHover(false);
+          if (!settingsOpen) handleSurfaceHover(false);
         }}
       >
         {renderedNotice ? (
@@ -752,7 +777,7 @@ export default function App() {
       onLanguage={changeLanguage}
       onLock={toggleAlwaysOnTop}
       onDrag={() => startDragging()}
-      onHover={handleHover}
+      onHover={handleSurfaceHover}
       onCollapse={collapseExplicitly}
       onSwitchToStats={() => void switchExpandedView("tokenStats")}
       onRefresh={() => refresh(true)}

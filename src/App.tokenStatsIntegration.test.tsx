@@ -39,6 +39,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("./lib/bridge", () => ({
+  isTauri: () => false,
   checkForUpdates: mocks.checkForUpdates,
   connectTaskCompanion: mocks.connectTaskCompanion,
   disconnectTaskCompanion: mocks.disconnectTaskCompanion,

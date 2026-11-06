@@ -4,12 +4,16 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - "codex/release-*"
 
 permissions:
   contents: write
 
 jobs:
   publish:
+    outputs:
+      release_tag: ${{ steps.version.outputs.tag }}
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +39,7 @@ jobs:
       - run: npm ci
       - run: npm run brand:check
       - name: Validate release version
+        id: version
         shell: pwsh
         run: |
           $package = Get-Content -Raw package.json | ConvertFrom-Json
@@ -51,9 +56,11 @@ jobs:
             throw "Pre-release versions must use a numeric identifier so the Windows MSI bundle can be created."
           }
           $expectedTag = "v$($package.version)"
-          if ($env:GITHUB_REF_NAME -ne $expectedTag) {
-            throw "Release tag '$env:GITHUB_REF_NAME' does not match app version '$expectedTag'."
+          $expectedRef = if ($env:GITHUB_REF_TYPE -eq 'tag') { $expectedTag } else { "codex/release-$($package.version)" }
+          if ($env:GITHUB_REF_NAME -ne $expectedRef) {
+            throw "Release ref '$env:GITHUB_REF_NAME' does not match app version '$expectedRef'."
           }
+          "tag=$expectedTag" >> $env:GITHUB_OUTPUT
       - run: npm test
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - uses: tauri-apps/tauri-action@v0
@@ -61,19 +68,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
+          releaseCommitish: ${{ github.sha }}
           releaseName: TokenHalo v__VERSION__
           releaseBody: |
-            ## Experience build
+            ## 修复 / Fixes
 
-            - Restores reliable automatic collapse after the pointer leaves a resized floating widget, including when macOS misses the native exit event.
-            - Fixes floating-orb and task-capsule hover interactions while another macOS app is active, without taking keyboard focus away from your work.
-            - Opens the selected Codex task directly and switches to Codex even when it is on another macOS desktop.
-            - Adds the pet-style multi-task capsule stack beside the floating orb.
-            - Shows the newest notification from the highest-priority status by default, with visible back layers when more tasks are waiting.
-            - Hover or focus the stack to reveal up to four task statuses; click a repeated status to expand the tasks inside it.
-            - Move away to collapse the stack again. Each card keeps its own actions, which appear only while that card is hovered or focused.
-            - Displays and resizes the notification surface without taking keyboard focus away from the app you are using.
-            - Task reminders stay on this computer and do not upload conversations, code, or project files.
+            - 修复悬停不展开、移开不收起：桌面浮层统一读取实际鼠标位置，遗漏进入或移出事件时也能恢复。
+            - 防止网页和原生鼠标事件互相覆盖，并等待窗口缩放完成后再判断鼠标位置。
+            - 保留手动收起、设置面板、锁定穿透和测试通知的预期行为。
+            - 修复任务胶囊的悬停冲突、残留操作按钮，以及失去窗口焦点后无法自动收起的问题。
+            - 恢复后台任务胶囊的位置轮询，补救遗漏的原生鼠标事件。
+            - Fixes missed hover events and conflicting DOM/native pointer states in the floating widget and task capsules.
+            - Preserves explicit collapse, open settings, click-through locking, notification previews, and active keyboard focus.
+
+            ## 验证 / Verification
+
+            - 347 frontend tests, including 12 new regression cases.
+            - TypeScript checks and production frontend build.
+            - Rust tests and macOS Universal / Windows packaging in GitHub Actions.
 
             ## Download
 
@@ -83,6 +95,43 @@ jobs:
             ## Privacy
 
             TokenHalo reads the local Codex Desktop login state for remaining-quota requests and reads local `~/.codex/sessions` Token counters for on-device statistics. It does not upload prompts, chats, raw session text, local statistics, or credentials.
-          releaseDraft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          releaseDraft: true
+          prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
           args: ${{ matrix.args }}
+
+  finalize:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify installers and publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.publish.outputs.release_tag }}
+        shell: bash
+        run: |
+          gh release view "$RELEASE_TAG" --json assets > release-assets.json
+          python3 - "$RELEASE_TAG" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          version = sys.argv[1].removeprefix("v")
+          assets = json.loads(Path("release-assets.json").read_text())["assets"]
+          available = {asset["name"] for asset in assets if asset["size"] > 0}
+          required = {
+              f"TokenHalo_{version}_universal.dmg",
+              f"TokenHalo_{version}_x64-setup.exe",
+              f"TokenHalo_{version}_x64_en-US.msi",
+              "TokenHalo_universal.app.tar.gz",
+          }
+          missing = required - available
+          if missing:
+              raise SystemExit(f"Missing release installers: {sorted(missing)}")
+          print("All macOS and Windows installers are present.")
+          PY
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease
+          else
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest
+          fi

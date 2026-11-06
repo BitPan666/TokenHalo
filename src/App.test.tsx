@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   fetchSnapshots: vi.fn(),
   getCodexForeground: vi.fn(),
   getWidgetPointerInside: vi.fn(),
+  isTauri: vi.fn(),
   getPreferences: vi.fn(),
   getTaskCompanionConnection: vi.fn(),
   listenDesktopEvents: vi.fn(),
@@ -46,6 +47,7 @@ vi.mock("./lib/bridge", () => ({
   fetchSnapshots: mocks.fetchSnapshots,
   getCodexForeground: mocks.getCodexForeground,
   getWidgetPointerInside: mocks.getWidgetPointerInside,
+  isTauri: mocks.isTauri,
   getPreferences: mocks.getPreferences,
   getTaskCompanionConnection: mocks.getTaskCompanionConnection,
   listenDesktopEvents: mocks.listenDesktopEvents,
@@ -172,6 +174,7 @@ describe("App page switching", () => {
     mocks.disconnectTaskCompanion.mockReset().mockResolvedValue({ state: "disconnected" });
     mocks.getCodexForeground.mockReset().mockResolvedValue(false);
     mocks.getWidgetPointerInside.mockReset().mockResolvedValue(true);
+    mocks.isTauri.mockReset().mockReturnValue(false);
     mocks.getPreferences.mockReset().mockResolvedValue(quotaPreferences);
     mocks.getTaskCompanionConnection.mockReset().mockResolvedValue({ state: "disconnected" });
     mocks.testTaskCompanionNotification.mockReset().mockResolvedValue(undefined);
@@ -523,15 +526,17 @@ describe("App page switching", () => {
   });
 
   it("collapses when macOS misses the native exit event after the widget resizes", async () => {
+    mocks.isTauri.mockReturnValue(true);
     setWindowSide(100);
-    mocks.getWidgetPointerInside
-      .mockResolvedValueOnce(true)
-      .mockResolvedValue(false);
+    let pointerInside = false;
+    mocks.getWidgetPointerInside.mockImplementation(async () => pointerInside);
     render(<App />);
 
     await screen.findByLabelText(/5 小时额度剩余 74%/);
+    pointerInside = true;
     emitNativePointer({ inside: true });
     await screen.findByText("CODEX · 剩余额度");
+    pointerInside = false;
 
     await waitFor(() => {
       expect(mocks.getWidgetPointerInside).toHaveBeenCalled();
@@ -541,15 +546,19 @@ describe("App page switching", () => {
   });
 
   it("keeps an open appearance sheet expanded when the pointer watchdog detects leave", async () => {
+    mocks.isTauri.mockReturnValue(true);
     setWindowSide(100);
     const pointerCheck = deferred<boolean>();
-    mocks.getWidgetPointerInside.mockReturnValue(pointerCheck.promise);
+    mocks.getWidgetPointerInside.mockResolvedValue(false);
     render(<App />);
 
     await screen.findByLabelText(/5 小时额度剩余 74%/);
+    mocks.getWidgetPointerInside.mockResolvedValue(true);
     emitNativePointer({ inside: true });
     await screen.findByText("CODEX · 剩余额度");
-    await waitFor(() => expect(mocks.getWidgetPointerInside).toHaveBeenCalled());
+    const previousReads = mocks.getWidgetPointerInside.mock.calls.length;
+    mocks.getWidgetPointerInside.mockReturnValue(pointerCheck.promise);
+    await waitFor(() => expect(mocks.getWidgetPointerInside.mock.calls.length).toBeGreaterThan(previousReads));
     fireEvent.click(screen.getByRole("button", { name: "设置与说明" }));
     mocks.setWidgetMode.mockClear();
 
@@ -561,6 +570,135 @@ describe("App page switching", () => {
 
     expect(screen.getByRole("dialog", { name: "设置与说明" })).toBeInTheDocument();
     expect(mocks.setWidgetMode).not.toHaveBeenCalledWith("compact");
+  });
+
+  it("recovers missed native enter and DOM leave events after a DOM expansion", async () => {
+    mocks.isTauri.mockReturnValue(true);
+    setWindowSide(100);
+    let pointerInside = false;
+    mocks.getWidgetPointerInside.mockImplementation(async () => pointerInside);
+    render(<App />);
+    const orb = await screen.findByLabelText(/5 小时额度剩余 74%/);
+
+    pointerInside = true;
+    fireEvent.mouseEnter(orb);
+    await screen.findByText("CODEX · 剩余额度");
+    pointerInside = false;
+
+    await waitFor(() => {
+      expect(screen.queryByText("CODEX · 剩余额度")).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/5 小时额度剩余 74%/)).toBeInTheDocument();
+    });
+  });
+
+  it("ignores conflicting DOM leave while the desktop pointer remains inside", async () => {
+    mocks.isTauri.mockReturnValue(true);
+    setWindowSide(100);
+    let pointerInside = false;
+    mocks.getWidgetPointerInside.mockImplementation(async () => pointerInside);
+    render(<App />);
+    await screen.findByLabelText(/5 小时额度剩余 74%/);
+
+    pointerInside = true;
+    act(() => emitNativePointer({ inside: true }));
+    const title = await screen.findByText("CODEX · 剩余额度");
+    fireEvent.mouseLeave(title.closest("main") as HTMLElement);
+    act(() => emitNativePointer({ inside: true }));
+    await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 300)); });
+
+    expect(screen.getByText("CODEX · 剩余额度")).toBeInTheDocument();
+    expect(mocks.setWidgetMode).not.toHaveBeenCalledWith("compact");
+  });
+
+  it("expands from the actual pointer position even when both enter events are missed", async () => {
+    mocks.isTauri.mockReturnValue(true);
+    setWindowSide(100);
+    let pointerInside = false;
+    mocks.getWidgetPointerInside.mockImplementation(async () => pointerInside);
+    render(<App />);
+    await screen.findByLabelText(/5 小时额度剩余 74%/);
+
+    pointerInside = true;
+
+    expect(await screen.findByText("CODEX · 剩余额度")).toBeInTheDocument();
+  });
+
+  it("keeps click-through widgets compact when pointer polling detects hover", async () => {
+    mocks.isTauri.mockReturnValue(true);
+    setWindowSide(100);
+    mocks.getPreferences.mockResolvedValue({ ...quotaPreferences, locked: true });
+    render(<App />);
+    await screen.findByLabelText(/5 小时额度剩余 74%/);
+    await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 300)); });
+
+    expect(screen.getByLabelText(/5 小时额度剩余 74%/)).toBeInTheDocument();
+    expect(mocks.setWidgetMode).not.toHaveBeenCalledWith("quota");
+  });
+
+  it("respects explicit collapse until the desktop pointer leaves and re-enters", async () => {
+    mocks.isTauri.mockReturnValue(true);
+    setWindowSide(100);
+    let pointerInside = false;
+    mocks.getWidgetPointerInside.mockImplementation(async () => pointerInside);
+    render(<App />);
+    await screen.findByLabelText(/5 小时额度剩余 74%/);
+    pointerInside = true;
+    act(() => emitNativePointer({ inside: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "收起悬浮窗" }));
+    await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 300)); });
+    expect(screen.getByLabelText(/5 小时额度剩余 74%/)).toBeInTheDocument();
+
+    pointerInside = false;
+    await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 150)); });
+    pointerInside = true;
+    expect(await screen.findByText("CODEX · 剩余额度")).toBeInTheDocument();
+  });
+
+  it("waits for the window frame to settle before handling pointer exit", async () => {
+    mocks.isTauri.mockReturnValue(true);
+    setWindowSide(100);
+    let pointerInside = false;
+    mocks.getWidgetPointerInside.mockImplementation(async () => pointerInside);
+    const resize = deferred<void>();
+    mocks.setWidgetMode.mockImplementation((mode) => mode === "quota" ? resize.promise : Promise.resolve());
+    render(<App />);
+    await screen.findByLabelText(/5 小时额度剩余 74%/);
+    pointerInside = true;
+    act(() => emitNativePointer({ inside: true }));
+    await screen.findByText("CODEX · 剩余额度");
+
+    pointerInside = false;
+    act(() => emitNativePointer({ inside: false }));
+    await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 150)); });
+    expect(screen.getByText("CODEX · 剩余额度")).toBeInTheDocument();
+
+    await act(async () => { resize.resolve(); await resize.promise; });
+    expect(await screen.findByLabelText(/5 小时额度剩余 74%/)).toBeInTheDocument();
+  });
+
+  it("keeps a notification preview collapsed while its frame is changing", async () => {
+    mocks.isTauri.mockReturnValue(true);
+    setWindowSide(100);
+    let pointerInside = false;
+    mocks.getWidgetPointerInside.mockImplementation(async () => pointerInside);
+    mocks.getTaskCompanionConnection.mockResolvedValue({ state: "connected" });
+    render(<App />);
+    await screen.findByLabelText(/5 小时额度剩余 74%/);
+    pointerInside = true;
+    act(() => emitNativePointer({ inside: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "设置与说明" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Codex 任务提醒" }));
+    const resize = deferred<void>();
+    mocks.setWidgetMode.mockImplementation((mode) => mode === "compact" ? resize.promise : Promise.resolve());
+    fireEvent.click(await screen.findByRole("button", { name: "发送测试通知" }));
+    await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 300)); });
+
+    expect(screen.getByRole("main")).toHaveClass("quota-orb");
+    expect(screen.queryByText("CODEX · 剩余额度")).not.toBeInTheDocument();
+
+    await act(async () => { resize.resolve(); await resize.promise; });
+    await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 150)); });
+    expect(screen.getByRole("main")).toHaveClass("quota-orb");
   });
 
   it("collapses the expanded quota card from its visible collapse control", async () => {
