@@ -109,6 +109,7 @@ jobs:
             - 保留手动收起、设置面板、锁定穿透和测试通知的预期行为。
             - 修复任务胶囊的悬停冲突、残留操作按钮，以及失去窗口焦点后无法自动收起的问题。
             - 恢复后台任务胶囊的位置轮询，补救遗漏的原生鼠标事件。
+            - 更新开发依赖，修复发布前安全审计发现的问题。
             - Fixes missed hover events and conflicting DOM/native pointer states in the floating widget and task capsules.
             - Preserves explicit collapse, open settings, click-through locking, notification previews, and active keyboard focus.
 
@@ -116,6 +117,7 @@ jobs:
 
             - 347 frontend tests, including 12 new regression cases.
             - TypeScript checks and production frontend build.
+            - npm security audit before packaging.
             - Rust tests and macOS Universal / Windows packaging in GitHub Actions.
 
             ## Download

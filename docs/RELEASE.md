@@ -24,7 +24,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-两个平台的构建任务均成功后，`finalize` 任务会核对非空的 `.dmg`、`.exe`、`.msi` 和 `.app.tar.gz` 附件，再自动公开发布。正式版本会设为 Latest；带 `-` 的版本保留为预发布，不改变正式更新入口。任一构建失败时，Release 保留为草稿。
+发布前置任务会取消同一分支较早的发布任务，并要求 `npm audit --audit-level=high` 通过。两个平台的构建任务均成功后，`finalize` 任务会核对非空的 `.dmg`、`.exe`、`.msi` 和 `.app.tar.gz` 附件，再自动公开发布。正式版本会设为 Latest；带 `-` 的版本保留为预发布，不改变正式更新入口。任一前置检查或构建失败时，不会公开 Release。
 
 ## CI 与构建
 
